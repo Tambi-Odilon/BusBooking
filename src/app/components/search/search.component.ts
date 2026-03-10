@@ -1,5 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { BookingService } from '../../services/booking.service';
 import { POPULAR_ROUTES } from '../../models/booking.models';
@@ -7,7 +8,7 @@ import { POPULAR_ROUTES } from '../../models/booking.models';
 @Component({
   selector: 'app-search',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, DecimalPipe],
   template: `
     <div class="space-y-8">
       <!-- Hero -->
