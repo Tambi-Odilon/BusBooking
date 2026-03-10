@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { BookingService } from '../../core/services/booking.service';
+import { I18nService } from '../../core/services/i18n.service';
 import { POPULAR_ROUTES } from '../../core/models/booking.models';
 
 @Component({
@@ -15,6 +16,7 @@ import { POPULAR_ROUTES } from '../../core/models/booking.models';
 export class SearchComponent {
   private bookingService = inject(BookingService);
   private router = inject(Router);
+  readonly i18n = inject(I18nService);
 
   from = '';
   to = '';
@@ -40,10 +42,7 @@ export class SearchComponent {
   handleSearch(): void {
     if (!this.isFormValid()) return;
     this.bookingService.setSearchParams({
-      from: this.from,
-      to: this.to,
-      date: this.date,
-      passengers: this.passengers,
+      from: this.from, to: this.to, date: this.date, passengers: this.passengers,
     });
     this.router.navigate(['/buses']);
   }

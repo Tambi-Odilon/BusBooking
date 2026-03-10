@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { BookingService } from '../../core/services/booking.service';
+import { I18nService } from '../../core/services/i18n.service';
 
 export type PaymentMethod  = 'card' | 'upi' | 'netbanking' | 'mobilemoney';
 export type MobileProvider = 'mvola' | 'orangemoney' | 'airtelmoney';
@@ -17,6 +18,7 @@ export type MobileProvider = 'mvola' | 'orangemoney' | 'airtelmoney';
 export class PaymentComponent implements OnInit {
   private bookingService = inject(BookingService);
   private router = inject(Router);
+  readonly i18n = inject(I18nService);
 
   readonly selectedBus   = this.bookingService.selectedBus;
   readonly selectedSeats = this.bookingService.selectedSeats;
@@ -27,28 +29,25 @@ export class PaymentComponent implements OnInit {
   readonly mobileProvider = signal<MobileProvider>('mvola');
   readonly isProcessing   = signal(false);
 
-  /* two-way ngModel bridges for signal-backed radio buttons */
-  paymentMethodModel: PaymentMethod  = 'card';
+  paymentMethodModel: PaymentMethod   = 'card';
   mobileProviderModel: MobileProvider = 'mvola';
 
-  cardNumber = '';
-  cardName   = '';
-  expiry     = '';
-  cvv        = '';
-  upiId      = '';
-  mobilePhone = '';
+  cardNumber = ''; cardName = ''; expiry = ''; cvv = ''; upiId = ''; mobilePhone = '';
 
-  readonly paymentMethods: { value: PaymentMethod; label: string; icon: string }[] = [
-    { value: 'card',        label: 'Carte crédit/débit',        icon: '💳' },
-    { value: 'upi',         label: 'UPI / Portefeuille numérique', icon: '📲' },
-    { value: 'netbanking',  label: 'Virement bancaire',          icon: '🏦' },
-    { value: 'mobilemoney', label: 'Mobile Money',               icon: '📱' },
-  ];
+  get paymentMethods() {
+    const t = this.i18n.t().payment;
+    return [
+      { value: 'card'        as PaymentMethod, label: t.methodCard,   icon: '💳' },
+      { value: 'upi'         as PaymentMethod, label: t.methodUpi,    icon: '📲' },
+      { value: 'netbanking'  as PaymentMethod, label: t.methodBank,   icon: '🏦' },
+      { value: 'mobilemoney' as PaymentMethod, label: t.methodMobile, icon: '📱' },
+    ];
+  }
 
   readonly mobileProviders: { value: MobileProvider; label: string; subtitle: string; short: string; color: string }[] = [
-    { value: 'mvola',       label: 'MVola',         subtitle: 'Telma Mobile Money',    short: 'M',  color: 'bg-orange-500' },
-    { value: 'orangemoney', label: 'Orange Money',  subtitle: 'Orange Madagascar',     short: 'OM', color: 'bg-orange-600' },
-    { value: 'airtelmoney', label: 'Airtel Money',  subtitle: 'Airtel Madagascar',     short: 'AM', color: 'bg-red-600'    },
+    { value: 'mvola',       label: 'MVola',        subtitle: 'Telma Mobile Money', short: 'M',  color: 'bg-orange-500' },
+    { value: 'orangemoney', label: 'Orange Money', subtitle: 'Orange Madagascar',  short: 'OM', color: 'bg-orange-600' },
+    { value: 'airtelmoney', label: 'Airtel Money', subtitle: 'Airtel Madagascar',  short: 'AM', color: 'bg-red-600'    },
   ];
 
   readonly ticketTotal = computed(() => {
@@ -75,14 +74,9 @@ export class PaymentComponent implements OnInit {
   isFormValid(): boolean {
     switch (this.paymentMethod()) {
       case 'card':
-        return this.cardNumber.replace(/\s/g, '').length === 16
-          && !!this.cardName.trim()
-          && this.expiry.length === 5
-          && this.cvv.length === 3;
-      case 'mobilemoney':
-        return !!this.mobilePhone.trim();
-      default:
-        return true;
+        return this.cardNumber.replace(/\s/g, '').length === 16 && !!this.cardName.trim() && this.expiry.length === 5 && this.cvv.length === 3;
+      case 'mobilemoney': return !!this.mobilePhone.trim();
+      default: return true;
     }
   }
 
