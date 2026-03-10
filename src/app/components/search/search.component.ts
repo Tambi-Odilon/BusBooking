@@ -1,0 +1,189 @@
+import { Component, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { BookingService } from '../../services/booking.service';
+import { POPULAR_ROUTES } from '../../models/booking.models';
+
+@Component({
+  selector: 'app-search',
+  standalone: true,
+  imports: [FormsModule],
+  template: `
+    <div class="space-y-8">
+      <!-- Hero -->
+      <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 p-8 text-white">
+        <div class="absolute inset-0 opacity-10">
+          <div class="absolute top-4 right-8 w-32 h-32 rounded-full border-4 border-white"></div>
+          <div class="absolute bottom-4 left-16 w-20 h-20 rounded-full border-4 border-white"></div>
+          <div class="absolute top-1/2 left-1/3 w-40 h-40 rounded-full border-2 border-white"></div>
+        </div>
+        <div class="relative">
+          <p class="text-blue-200 text-sm font-medium tracking-wider uppercase mb-2">Voyagez en confort</p>
+          <h2 class="text-4xl font-display font-bold mb-2 leading-tight">Trouvez votre<br>trajet idéal</h2>
+          <p class="text-blue-100 text-lg">Réservez vos billets aux meilleurs prix</p>
+        </div>
+      </div>
+
+      <!-- Search Form -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-900 mb-5">Rechercher un bus</h3>
+        <div class="grid md:grid-cols-2 gap-4 mb-4">
+          <!-- From -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">
+              <span class="flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600">
+                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+                </svg>
+                Départ
+              </span>
+            </label>
+            <input type="text" [(ngModel)]="from" placeholder="Ville de départ"
+              class="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm
+                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              required />
+          </div>
+
+          <!-- To -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">
+              <span class="flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600">
+                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+                </svg>
+                Destination
+              </span>
+            </label>
+            <div class="relative">
+              <input type="text" [(ngModel)]="to" placeholder="Ville de destination"
+                class="w-full h-12 px-4 pr-12 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm
+                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                required />
+              <button type="button" (click)="swapLocations()"
+                class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-slate-200 transition-colors text-slate-500">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Date -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">
+              <span class="flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600">
+                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/>
+                  <line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/>
+                </svg>
+                Date du voyage
+              </span>
+            </label>
+            <input type="date" [(ngModel)]="date" [min]="today"
+              class="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm
+                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              required />
+          </div>
+
+          <!-- Passengers -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">
+              <span class="flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                Passagers
+              </span>
+            </label>
+            <input type="number" [(ngModel)]="passengers" min="1" max="9"
+              class="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm
+                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              required />
+          </div>
+        </div>
+
+        <button (click)="handleSearch()"
+          [disabled]="!isFormValid()"
+          class="w-full h-12 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed
+            text-white font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+          </svg>
+          Rechercher les bus
+        </button>
+      </div>
+
+      <!-- Popular Routes -->
+      <div>
+        <h3 class="text-lg font-semibold text-slate-900 mb-4">Trajets populaires</h3>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          @for (route of popularRoutes; track route.from) {
+            <button (click)="selectRoute(route)"
+              class="bg-white rounded-xl border border-slate-200 p-4 text-left hover:border-blue-300 hover:shadow-md
+                transition-all duration-200 group">
+              <div class="flex items-start justify-between mb-2">
+                <div>
+                  <p class="font-semibold text-slate-900 text-sm">{{ route.from }}</p>
+                  <p class="text-slate-500 text-xs flex items-center gap-1 mt-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="5" x2="19" y1="12" y2="12"/><polyline points="12 5 19 12 12 19"/>
+                    </svg>
+                    {{ route.to }}
+                  </p>
+                </div>
+                <div class="text-right">
+                  <p class="text-xs text-slate-400">à partir de</p>
+                  <p class="font-bold text-blue-600 text-sm">{{ route.price | number }} Ar</p>
+                </div>
+              </div>
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  `
+})
+export class SearchComponent {
+  private bookingService = inject(BookingService);
+  private router = inject(Router);
+
+  from = '';
+  to = '';
+  date = '';
+  passengers = 1;
+  readonly today = new Date().toISOString().split('T')[0];
+  readonly popularRoutes = POPULAR_ROUTES;
+
+  isFormValid(): boolean {
+    return !!(this.from && this.to && this.date && this.passengers > 0);
+  }
+
+  swapLocations(): void {
+    [this.from, this.to] = [this.to, this.from];
+  }
+
+  selectRoute(route: { from: string; to: string }): void {
+    this.from = route.from;
+    this.to = route.to;
+  }
+
+  handleSearch(): void {
+    if (!this.isFormValid()) return;
+    this.bookingService.setSearchParams({
+      from: this.from,
+      to: this.to,
+      date: this.date,
+      passengers: this.passengers,
+    });
+    this.router.navigate(['/buses']);
+  }
+}
