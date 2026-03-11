@@ -76,7 +76,7 @@ export const MG = {
     placeholderFirst: 'Ampidiro ny anarana',
     lastName: 'Fanamaranana',
     placeholderLast: 'Ampidiro ny fanamaranana',
-    age: 'Taona',
+    phone: 'Finday',
     gender: 'Lahy/Vavy',
     genderSelect: 'Fidio',
     genderMale: 'Lahy',

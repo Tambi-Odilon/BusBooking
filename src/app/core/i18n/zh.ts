@@ -76,7 +76,7 @@ export const ZH = {
     placeholderFirst: '请输入名',
     lastName: '姓',
     placeholderLast: '请输入姓',
-    age: '年龄',
+    phone: '电话号码',
     gender: '性别',
     genderSelect: '请选择',
     genderMale: '男',

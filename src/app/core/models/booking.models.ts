@@ -23,10 +23,10 @@ export interface Bus {
 }
 
 export interface Passenger {
-  firstName: string;
-  lastName: string;
-  age: number;
-  gender: string;
+  firstName:  string;
+  lastName:   string;
+  phone:      string;
+  gender:     string;
   seatNumber: string;
 }
 

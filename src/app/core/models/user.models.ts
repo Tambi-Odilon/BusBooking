@@ -61,7 +61,7 @@ export interface SavedBooking {
 export interface SavedPassenger {
   firstName:  string;
   lastName:   string;
-  age:        number;
+  phone:      string;
   gender:     string;
   seatNumber: string;
 }

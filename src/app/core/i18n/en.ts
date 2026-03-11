@@ -76,7 +76,7 @@ export const EN = {
     placeholderFirst: 'Enter first name',
     lastName: 'Last name',
     placeholderLast: 'Enter last name',
-    age: 'Age',
+    phone: 'Phone',
     gender: 'Gender',
     genderSelect: 'Select',
     genderMale: 'Male',

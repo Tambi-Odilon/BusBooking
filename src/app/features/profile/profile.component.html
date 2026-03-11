@@ -366,7 +366,7 @@
                           <p class="font-semibold text-sm text-slate-900">{{ p.firstName }} {{ p.lastName }}</p>
                           <p class="text-xs text-slate-500">
                             Siège {{ p.seatNumber }}
-                            @if (p.age) { · {{ p.age }} ans }
+                            @if (p.phone) { · {{ p.phone }} }
                             @if (p.gender) { · {{ p.gender === 'male' ? '♂' : p.gender === 'female' ? '♀' : '⚧' }} }
                           </p>
                         </div>

@@ -26,9 +26,7 @@ export class PassengerDetailsComponent implements OnInit {
   readonly currentUser   = this.authService.currentUser;
   readonly isLoggedIn    = this.authService.isLoggedIn;
   readonly passengerData = signal<Passenger[]>([]);
-
-  // Indique si le passager 1 a été pré-rempli depuis le profil
-  readonly prefilled = signal(false);
+  readonly prefilled     = signal(false);
 
   readonly ticketTotal = computed(() => {
     const bus = this.selectedBus();
@@ -40,41 +38,44 @@ export class PassengerDetailsComponent implements OnInit {
     if (!this.selectedBus() || !this.selectedSeats().length || !this.searchParams()) {
       this.router.navigate(['/']); return;
     }
-
     const user = this.currentUser();
     this.passengerData.set(
       this.selectedSeats().map((seat, index) => {
-        // Pré-remplir le 1er passager avec le profil de l'utilisateur connecté
         if (index === 0 && user) {
           return {
             firstName:  user.firstName,
             lastName:   user.lastName,
-            age:        user.age || 0,
+            phone:      user.phone || '',
             gender:     user.gender || '',
             seatNumber: seat,
           };
         }
-        return { firstName: '', lastName: '', age: 0, gender: '', seatNumber: seat };
+        return { firstName: '', lastName: '', phone: '', gender: '', seatNumber: seat };
       })
     );
-
     if (user) this.prefilled.set(true);
   }
 
-  updatePassenger(index: number, field: keyof Passenger, value: string | number): void {
+  updatePassenger(index: number, field: keyof Passenger, value: string): void {
     const updated = [...this.passengerData()];
     updated[index] = { ...updated[index], [field]: value };
     this.passengerData.set(updated);
   }
 
-  // Mode anonyme : seuls prénom, nom et siège sont requis
+  isPhoneValid(phone: string): boolean {
+    // Accepte formats internationaux et locaux Madagascar
+    return /^(\+?261|0)[0-9]{8,10}$/.test(phone.replace(/[\s\-().]/g, ''));
+  }
+
   isFormValid(): boolean {
     return this.passengerData().every(p =>
-      p.firstName.trim() && p.lastName.trim()
+      p.firstName.trim() &&
+      p.lastName.trim() &&
+      p.phone.trim() &&
+      this.isPhoneValid(p.phone)
     );
   }
 
-  // Vérifie si un champ est pré-rempli depuis le profil (passager 0 uniquement)
   isProfileField(index: number): boolean {
     return index === 0 && this.isLoggedIn() && this.prefilled();
   }

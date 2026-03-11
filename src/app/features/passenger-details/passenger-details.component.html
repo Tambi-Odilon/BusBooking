@@ -47,8 +47,8 @@
       <div>
         <p class="font-semibold text-amber-900 text-sm">Réservation sans compte</p>
         <p class="text-xs text-amber-800 mt-0.5">
-          Remplissez uniquement <strong>Prénom</strong> et <strong>Nom</strong> pour chaque passager.
-          Les champs âge et genre sont optionnels.
+          Remplissez <strong>Prénom</strong>, <strong>Nom</strong> et <strong>Téléphone</strong> pour chaque passager.
+          Le genre est optionnel.
         </p>
       </div>
     </div>
@@ -104,25 +104,42 @@
               </div>
             </div>
 
-            <!-- Âge + Genre (optionnels pour anonyme, pré-remplis si connecté) -->
+            <!-- Téléphone + Genre -->
             <div class="grid sm:grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-medium text-slate-700 mb-1.5">
-                  {{ i18n.t().passengers.age }}
-                  @if (!isLoggedIn()) {
-                    <span class="text-slate-400 text-xs font-normal ml-1">(optionnel)</span>
-                  }
+                  {{ i18n.t().passengers.phone }} <span class="text-red-500">*</span>
                 </label>
-                <input type="number" min="1" max="120" [ngModel]="passenger.age || null"
-                       (ngModelChange)="updatePassenger(i, 'age', +$event || 0)"
-                       [class]="'input-field ' + (isProfileField(i) ? 'border-green-200 bg-green-50' : '')" />
+                <div class="relative">
+                  <input type="tel" [ngModel]="passenger.phone"
+                         (ngModelChange)="updatePassenger(i, 'phone', $event)"
+                         placeholder="+261 34 XX XXX XX"
+                         [class]="'input-field pr-9 ' +
+                           (isProfileField(i) ? 'border-green-200 bg-green-50' :
+                            (passenger.phone && !isPhoneValid(passenger.phone)) ? 'border-red-300 bg-red-50' : '')" />
+                  @if (passenger.phone && isPhoneValid(passenger.phone)) {
+                    <svg class="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 pointer-events-none"
+                         xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M20 6 9 17l-5-5"/>
+                    </svg>
+                  }
+                  @if (passenger.phone && !isPhoneValid(passenger.phone)) {
+                    <svg class="absolute right-3 top-1/2 -translate-y-1/2 text-red-400 pointer-events-none"
+                         xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                  }
+                </div>
+                @if (passenger.phone && !isPhoneValid(passenger.phone)) {
+                  <p class="text-xs text-red-500 mt-1">Numéro invalide (ex: +261 34 XX XXX XX)</p>
+                }
               </div>
               <div>
                 <label class="block text-sm font-medium text-slate-700 mb-1.5">
                   {{ i18n.t().passengers.gender }}
-                  @if (!isLoggedIn()) {
-                    <span class="text-slate-400 text-xs font-normal ml-1">(optionnel)</span>
-                  }
+                  <span class="text-slate-400 text-xs font-normal ml-1">(optionnel)</span>
                 </label>
                 <select [ngModel]="passenger.gender"
                         (ngModelChange)="updatePassenger(i, 'gender', $event)"
@@ -211,7 +228,7 @@
 
         @if (!isFormValid()) {
           <p class="text-xs text-amber-600 text-center mt-2">
-            Prénom et nom requis pour chaque passager
+            Prénom, nom et téléphone valide requis pour chaque passager
           </p>
         }
       </div>

@@ -76,7 +76,7 @@ export const FR = {
     placeholderFirst: 'Entrez le prénom',
     lastName: 'Nom',
     placeholderLast: 'Entrez le nom',
-    age: 'Âge',
+    phone: 'Téléphone',
     gender: 'Genre',
     genderSelect: 'Sélectionner',
     genderMale: 'Masculin',
