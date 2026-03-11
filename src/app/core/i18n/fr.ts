@@ -65,9 +65,6 @@ export const FR = {
     places: 'places',
     front: 'Avant',
     vipLabel: 'Minibus VIP — Sièges spacieux',
-    places: 'places',
-    front: 'Avant',
-    vipLabel: 'Minibus VIP — Sièges spacieux',
   },
 
   passengers: {
