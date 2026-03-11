@@ -143,6 +143,7 @@ export class PaymentComponent implements OnInit, OnDestroy {
       case 'mvola':       return this.mvolaStatusLabel();
       case 'orangemoney': return this.omStatusLabel();
       case 'airtelmoney': return this.airtelStatusLabel();
+      default:            return '';
     }
   });
 
@@ -163,6 +164,7 @@ export class PaymentComponent implements OnInit, OnDestroy {
       case 'mvola':       return this.mvolaStep();
       case 'orangemoney': return this.omStep();
       case 'airtelmoney': return this.airtelStep();
+      default:            return 'form';
     }
   });
 
@@ -171,6 +173,7 @@ export class PaymentComponent implements OnInit, OnDestroy {
       case 'mvola':       return this.mvolaError();
       case 'orangemoney': return this.omError();
       case 'airtelmoney': return this.airtelError();
+      default:            return null;
     }
   });
 
