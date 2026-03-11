@@ -263,7 +263,7 @@
 
         <!-- Filtres -->
         <div class="flex flex-wrap gap-2">
-          @for (f of [bookingFilters()]; track f.v) {
+          @for (f of bookingFilters(); track f.v) {
             <button (click)="setBookingFilter(f.v)"
                     [class]="'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ' +
                       (bookingFilter() === f.v ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300')">

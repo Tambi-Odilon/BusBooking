@@ -214,6 +214,7 @@ export const EN = {
     myAccount: 'My account',
     myProfile: 'My profile',
     myBookings: 'My bookings',
+    logoutBtn: 'Sign out',
   },
 
   passengers: {

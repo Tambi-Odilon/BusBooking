@@ -214,6 +214,7 @@ export const ZH = {
     myAccount: '我的账户',
     myProfile: '我的资料',
     myBookings: '我的预订',
+    logoutBtn: '退出',
   },
 
   passengers: {

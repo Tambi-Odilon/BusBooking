@@ -214,6 +214,7 @@ export const MG = {
     myAccount: 'Ny kaontinko',
     myProfile: 'Ny mombamomba ahy',
     myBookings: 'Ny fandraharahako',
+    logoutBtn: 'Hivoaka',
   },
 
   passengers: {

@@ -224,6 +224,7 @@ export const FR = {
     myAccount: 'Mon compte',
     myProfile: 'Mon profil',
     myBookings: 'Mes réservations',
+    logoutBtn: 'Déconnexion',
   },
 
   passengers: {
