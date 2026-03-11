@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { BookingService } from '../../core/services/booking.service';
+import { AuthService } from '../../core/services/auth.service';
 import { I18nService } from '../../core/services/i18n.service';
 import { Passenger } from '../../core/models/booking.models';
 
@@ -15,13 +16,19 @@ import { Passenger } from '../../core/models/booking.models';
 })
 export class PassengerDetailsComponent implements OnInit {
   private bookingService = inject(BookingService);
-  private router = inject(Router);
-  readonly i18n = inject(I18nService);
+  private authService    = inject(AuthService);
+  private router         = inject(Router);
+  readonly i18n          = inject(I18nService);
 
   readonly selectedBus   = this.bookingService.selectedBus;
   readonly selectedSeats = this.bookingService.selectedSeats;
   readonly searchParams  = this.bookingService.searchParams;
+  readonly currentUser   = this.authService.currentUser;
+  readonly isLoggedIn    = this.authService.isLoggedIn;
   readonly passengerData = signal<Passenger[]>([]);
+
+  // Indique si le passager 1 a été pré-rempli depuis le profil
+  readonly prefilled = signal(false);
 
   readonly ticketTotal = computed(() => {
     const bus = this.selectedBus();
@@ -33,9 +40,25 @@ export class PassengerDetailsComponent implements OnInit {
     if (!this.selectedBus() || !this.selectedSeats().length || !this.searchParams()) {
       this.router.navigate(['/']); return;
     }
+
+    const user = this.currentUser();
     this.passengerData.set(
-      this.selectedSeats().map(seat => ({ firstName: '', lastName: '', age: 0, gender: '', seatNumber: seat }))
+      this.selectedSeats().map((seat, index) => {
+        // Pré-remplir le 1er passager avec le profil de l'utilisateur connecté
+        if (index === 0 && user) {
+          return {
+            firstName:  user.firstName,
+            lastName:   user.lastName,
+            age:        user.age || 0,
+            gender:     user.gender || '',
+            seatNumber: seat,
+          };
+        }
+        return { firstName: '', lastName: '', age: 0, gender: '', seatNumber: seat };
+      })
     );
+
+    if (user) this.prefilled.set(true);
   }
 
   updatePassenger(index: number, field: keyof Passenger, value: string | number): void {
@@ -44,8 +67,16 @@ export class PassengerDetailsComponent implements OnInit {
     this.passengerData.set(updated);
   }
 
+  // Mode anonyme : seuls prénom, nom et siège sont requis
   isFormValid(): boolean {
-    return this.passengerData().every(p => p.firstName.trim() && p.lastName.trim() && p.age > 0 && p.age < 120 && p.gender);
+    return this.passengerData().every(p =>
+      p.firstName.trim() && p.lastName.trim()
+    );
+  }
+
+  // Vérifie si un champ est pré-rempli depuis le profil (passager 0 uniquement)
+  isProfileField(index: number): boolean {
+    return index === 0 && this.isLoggedIn() && this.prefilled();
   }
 
   goBack(): void { this.router.navigate(['/seats']); }
