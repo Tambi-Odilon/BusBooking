@@ -70,7 +70,7 @@
               <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
               <circle cx="12" cy="7" r="4"/>
             </svg>
-            <span class="hidden sm:inline">Connexion</span>
+            <span class="hidden sm:inline">{{ i18n.t().layout.loginBtn }}</span>
           </button>
         } @else {
           <!-- Connecté → Avatar + menu -->
@@ -87,7 +87,7 @@
                 <p class="text-sm font-semibold text-slate-900 leading-tight">
                   {{ authService.currentUser()?.firstName }}
                 </p>
-                <p class="text-xs text-slate-500 leading-tight">Mon compte</p>
+                <p class="text-xs text-slate-500 leading-tight">{{ i18n.t().layout.myAccount }}</p>
               </div>
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -126,7 +126,7 @@
                       <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
                       <circle cx="12" cy="7" r="4"/>
                     </svg>
-                    Mon profil
+                    {{ i18n.t().layout.myProfile }}
                   </button>
                   <button (click)="goToBookings()" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -134,7 +134,7 @@
                       <path d="M9 12h6"/><path d="M9 8h1"/><path d="M9 16h6"/>
                       <rect width="16" height="20" x="4" y="2" rx="2" ry="2"/>
                     </svg>
-                    Mes réservations
+                    {{ i18n.t().layout.myBookings }}
                   </button>
                 </div>
 
@@ -148,7 +148,7 @@
                       <polyline points="16 17 21 12 16 7"/>
                       <line x1="21" y1="12" x2="9" y2="12"/>
                     </svg>
-                    Se déconnecter
+                    {{ i18n.t().layout.logoutBtn }}
                   </button>
                 </div>
               </div>

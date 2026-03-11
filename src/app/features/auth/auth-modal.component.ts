@@ -27,7 +27,7 @@ export class AuthModalComponent {
   readonly authError    = this.authService.authError;
 
   readonly errorMessage = computed(() =>
-    this.authService.getErrorMessage(this.authError())
+    this.authService.getErrorMessage(this.authError(), this.i18n.lang())
   );
 
   // ── Login form ────────────────────────────────────────────────────────────

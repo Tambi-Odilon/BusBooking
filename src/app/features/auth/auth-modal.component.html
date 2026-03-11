@@ -8,7 +8,6 @@
 
     <!-- Header avec tabs -->
     <div class="relative">
-      <!-- Gradient décoratif -->
       <div class="h-1.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500"></div>
 
       <div class="px-6 pt-5 pb-0">
@@ -24,8 +23,8 @@
             <div>
               <h2 class="text-lg font-bold text-slate-900 leading-tight">Soatrans</h2>
               <p class="text-xs text-slate-500 leading-tight">
-                @if (tab() === 'login') { Bienvenue ! Connectez-vous }
-                @else { Créez votre compte }
+                @if (tab() === 'login') { {{ i18n.t().auth.loginSubtitle }} }
+                @else { {{ i18n.t().auth.signupSubtitle }} }
               </p>
             </div>
           </div>
@@ -41,17 +40,13 @@
         <div class="flex border-b border-slate-200">
           <button (click)="setTab('login')"
                   [class]="'flex-1 py-2.5 text-sm font-semibold transition-all border-b-2 -mb-px ' +
-                    (tab() === 'login'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-slate-500 hover:text-slate-700')">
-            🔑 Se connecter
+                    (tab() === 'login' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700')">
+            {{ i18n.t().auth.tabLogin }}
           </button>
           <button (click)="setTab('signup')"
                   [class]="'flex-1 py-2.5 text-sm font-semibold transition-all border-b-2 -mb-px ' +
-                    (tab() === 'signup'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-slate-500 hover:text-slate-700')">
-            ✨ Créer un compte
+                    (tab() === 'signup' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700')">
+            {{ i18n.t().auth.tabSignup }}
           </button>
         </div>
       </div>
@@ -76,31 +71,29 @@
       @if (tab() === 'login') {
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Adresse email</label>
-            <input type="email" [(ngModel)]="loginEmail" placeholder="votre@email.com"
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ i18n.t().auth.email }}</label>
+            <input type="email" [(ngModel)]="loginEmail" [placeholder]="i18n.t().auth.emailPlaceholder"
                    (keydown.enter)="submitLogin()"
                    class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm
                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Mot de passe</label>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ i18n.t().auth.password }}</label>
             <div class="relative">
               <input [type]="showPassword() ? 'text' : 'password'" [(ngModel)]="loginPassword"
-                     placeholder="••••••••" (keydown.enter)="submitLogin()"
+                     [placeholder]="i18n.t().auth.passwordPlaceholder" (keydown.enter)="submitLogin()"
                      class="w-full h-11 pl-4 pr-11 rounded-xl border border-slate-200 bg-slate-50 text-sm
                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
               <button type="button" (click)="togglePassword()"
                       class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
                 @if (showPassword()) {
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
                     <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
                     <line x1="1" y1="1" x2="23" y2="23"/>
                   </svg>
                 } @else {
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                     <circle cx="12" cy="12" r="3"/>
                   </svg>
@@ -114,15 +107,15 @@
                          text-white disabled:text-slate-400 font-semibold rounded-xl transition-all text-sm flex items-center justify-center gap-2">
             @if (isLoading()) {
               <span class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
-              Connexion...
+              {{ i18n.t().auth.loginLoading }}
             } @else {
-              🔑 Se connecter
+              {{ i18n.t().auth.tabLogin }}
             }
           </button>
 
           <p class="text-center text-sm text-slate-500">
-            Pas encore de compte ?
-            <button (click)="setTab('signup')" class="text-blue-600 font-semibold hover:underline">Créer un compte</button>
+            {{ i18n.t().auth.noAccount }}
+            <button (click)="setTab('signup')" class="text-blue-600 font-semibold hover:underline">{{ i18n.t().auth.createAccount }}</button>
           </p>
         </div>
       }
@@ -130,51 +123,41 @@
       <!-- ════ FORMULAIRE SIGNUP ════ -->
       @if (tab() === 'signup') {
         <div class="space-y-4">
-
-          <!-- Nom + Prénom -->
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1.5">Prénom <span class="text-red-500">*</span></label>
-              <input type="text" [(ngModel)]="signupFirstName" placeholder="Jean"
-                     class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm
-                            focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ i18n.t().auth.firstName }} <span class="text-red-500">*</span></label>
+              <input type="text" [(ngModel)]="signupFirstName" [placeholder]="i18n.t().auth.firstNamePlaceholder"
+                     class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1.5">Nom <span class="text-red-500">*</span></label>
-              <input type="text" [(ngModel)]="signupLastName" placeholder="Dupont"
-                     class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm
-                            focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ i18n.t().auth.lastName }} <span class="text-red-500">*</span></label>
+              <input type="text" [(ngModel)]="signupLastName" [placeholder]="i18n.t().auth.lastNamePlaceholder"
+                     class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
           </div>
 
-          <!-- Email -->
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Email <span class="text-red-500">*</span></label>
-            <input type="email" [(ngModel)]="signupEmail" placeholder="votre@email.com"
-                   class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm
-                          focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ i18n.t().auth.email }} <span class="text-red-500">*</span></label>
+            <input type="email" [(ngModel)]="signupEmail" [placeholder]="i18n.t().auth.emailPlaceholder"
+                   class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
 
-          <!-- Mot de passe -->
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Mot de passe <span class="text-red-500">*</span></label>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ i18n.t().auth.password }} <span class="text-red-500">*</span></label>
             <div class="relative">
               <input [type]="showPassword() ? 'text' : 'password'" [(ngModel)]="signupPassword"
-                     placeholder="Min. 6 caractères"
-                     class="w-full h-11 pl-4 pr-11 rounded-xl border border-slate-200 bg-slate-50 text-sm
-                            focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+                     [placeholder]="i18n.t().auth.passwordMin"
+                     class="w-full h-11 pl-4 pr-11 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
               <button type="button" (click)="togglePassword()"
                       class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
                 @if (showPassword()) {
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
                     <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
                     <line x1="1" y1="1" x2="23" y2="23"/>
                   </svg>
                 } @else {
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                     <circle cx="12" cy="12" r="3"/>
                   </svg>
@@ -182,58 +165,50 @@
               </button>
             </div>
             @if (signupPassword.length > 0 && signupPassword.length < 6) {
-              <p class="text-xs text-red-500 mt-1">⚠️ Au moins 6 caractères requis</p>
+              <p class="text-xs text-red-500 mt-1">⚠️ {{ i18n.t().auth.weakPassword }}</p>
             }
           </div>
 
-          <!-- Téléphone + Genre -->
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1.5">Téléphone</label>
-              <input type="tel" [(ngModel)]="signupPhone" placeholder="+261 34..."
-                     class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm
-                            focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ i18n.t().auth.phone }}</label>
+              <input type="tel" [(ngModel)]="signupPhone" [placeholder]="i18n.t().auth.phonePlaceholder"
+                     class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1.5">Genre</label>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ i18n.t().auth.gender }}</label>
               <select [(ngModel)]="signupGender"
-                      class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm
-                             focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
-                <option value="">Sélectionner</option>
-                <option value="male">Masculin</option>
-                <option value="female">Féminin</option>
-                <option value="other">Autre</option>
+                      class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                <option value="">{{ i18n.t().auth.genderSelect }}</option>
+                <option value="male">{{ i18n.t().auth.genderMale }}</option>
+                <option value="female">{{ i18n.t().auth.genderFemale }}</option>
+                <option value="other">{{ i18n.t().auth.genderOther }}</option>
               </select>
             </div>
           </div>
 
-          <!-- Âge -->
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Âge</label>
-            <input type="number" [(ngModel)]="signupAge" placeholder="25" min="1" max="120"
-                   class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm
-                          focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ i18n.t().auth.age }}</label>
+            <input type="number" [(ngModel)]="signupAge" [placeholder]="i18n.t().auth.agePlaceholder" min="1" max="120"
+                   class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
 
-          <!-- Note champs obligatoires -->
-          <p class="text-xs text-slate-400">
-            <span class="text-red-500">*</span> Champs obligatoires
-          </p>
+          <p class="text-xs text-slate-400"><span class="text-red-500">*</span> {{ i18n.t().auth.optionalFields }}</p>
 
           <button (click)="submitSignup()" [disabled]="!isSignupValid() || isLoading()"
                   class="w-full h-12 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:cursor-not-allowed
                          text-white disabled:text-slate-400 font-semibold rounded-xl transition-all text-sm flex items-center justify-center gap-2">
             @if (isLoading()) {
               <span class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
-              Création du compte...
+              {{ i18n.t().auth.signupLoading }}
             } @else {
-              ✨ Créer mon compte
+              {{ i18n.t().auth.signupBtn }}
             }
           </button>
 
           <p class="text-center text-sm text-slate-500">
-            Déjà un compte ?
-            <button (click)="setTab('login')" class="text-blue-600 font-semibold hover:underline">Se connecter</button>
+            {{ i18n.t().auth.hasAccount }}
+            <button (click)="setTab('login')" class="text-blue-600 font-semibold hover:underline">{{ i18n.t().auth.tabLogin }}</button>
           </p>
         </div>
       }
@@ -250,8 +225,9 @@
             <circle cx="12" cy="12" r="10"/>
             <path d="M12 16v-4"/><path d="M12 8h.01"/>
           </svg>
-          Vous pouvez également réserver <strong class="text-slate-700">sans compte</strong> en fermant cette fenêtre.
-          Les informations seront saisies manuellement.
+          {{ i18n.t().auth.anonymousNote }}
+          <strong class="text-slate-700">{{ i18n.t().auth.anonymousNoteStrong }}</strong>
+          {{ i18n.t().auth.anonymousNoteEnd }}
         </div>
       </div>
     </div>

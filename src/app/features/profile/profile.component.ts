@@ -89,9 +89,10 @@ export class ProfileComponent implements OnInit {
   async changePassword(): Promise<void> {
     this.passwordError   = '';
     this.passwordSuccess = false;
-    if (!this.currentPassword) { this.passwordError = 'Entrez votre mot de passe actuel'; return; }
-    if (this.newPassword.length < 6) { this.passwordError = 'Le nouveau mot de passe doit contenir au moins 6 caractères'; return; }
-    if (this.newPassword !== this.confirmPassword) { this.passwordError = 'Les mots de passe ne correspondent pas'; return; }
+    const t = this.i18n.t().profile;
+    if (!this.currentPassword) { this.passwordError = t.currentPassword + ' requis'; return; }
+    if (this.newPassword.length < 6) { this.passwordError = this.i18n.t().auth.weakPassword; return; }
+    if (this.newPassword !== this.confirmPassword) { this.passwordError = this.i18n.t().auth.weakPassword; return; }
 
     this.isSaving.set(true);
     await this.delay(500);
@@ -115,6 +116,15 @@ export class ProfileComponent implements OnInit {
     return [...this.myBookings()].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
+  }
+
+  bookingFilters() {
+    const t = this.i18n.t().profile;
+    return [
+      { v: 'all',      l: t.filterAll,      c: this.myBookings().length },
+      { v: 'upcoming', l: t.filterUpcoming,  c: this.upcomingCount() },
+      { v: 'past',     l: t.filterPast,      c: this.pastCount() },
+    ];
   }
 
   setBookingFilter(v: string): void {
@@ -145,9 +155,10 @@ export class ProfileComponent implements OnInit {
   }
 
   getStatusLabel(status: SavedBooking['status']): string {
-    if (status === 'confirmed') return '✅ Confirmée';
-    if (status === 'cancelled') return '❌ Annulée';
-    return '✔ Terminée';
+    const t = this.i18n.t().profile;
+    if (status === 'confirmed') return t.statusConfirmed;
+    if (status === 'cancelled') return t.statusCancelled;
+    return t.statusCompleted;
   }
 
   formatDate(iso: string): string {

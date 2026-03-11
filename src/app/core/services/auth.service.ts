@@ -122,14 +122,41 @@ export class AuthService {
 
   // ── Error messages helper ─────────────────────────────────────────────────
   getErrorMessage(error: AuthError, lang = 'fr'): string {
-    const msgs: Record<NonNullable<AuthError>, string> = {
-      invalid_credentials: 'Email ou mot de passe incorrect',
-      email_taken:         'Un compte existe déjà avec cet email',
-      weak_password:       'Le mot de passe doit contenir au moins 6 caractères',
-      invalid_email:       'Adresse email invalide',
-      missing_fields:      'Veuillez remplir tous les champs obligatoires',
+    type MsgMap = Record<NonNullable<AuthError>, Record<string, string>>;
+    const msgs: MsgMap = {
+      invalid_credentials: {
+        fr: 'Email ou mot de passe incorrect',
+        en: 'Incorrect email or password',
+        mg: 'Email na teny miafina diso',
+        zh: '邮箱或密码不正确',
+      },
+      email_taken: {
+        fr: 'Un compte existe déjà avec cet email',
+        en: 'An account already exists with this email',
+        mg: 'Misy kaonty sahady amin\'ity email ity',
+        zh: '该邮箱已注册',
+      },
+      weak_password: {
+        fr: 'Le mot de passe doit contenir au moins 6 caractères',
+        en: 'Password must be at least 6 characters',
+        mg: 'Ny teny miafina dia tsy maintsy manana litera 6 farafahakeliny',
+        zh: '密码至少需要6个字符',
+      },
+      invalid_email: {
+        fr: 'Adresse email invalide',
+        en: 'Invalid email address',
+        mg: 'Adiresy email tsy mety',
+        zh: '无效的邮箱地址',
+      },
+      missing_fields: {
+        fr: 'Veuillez remplir tous les champs obligatoires',
+        en: 'Please fill in all required fields',
+        mg: 'Fenoy ny saha rehetra ilaina',
+        zh: '请填写所有必填字段',
+      },
     };
-    return error ? (msgs[error] ?? 'Une erreur est survenue') : '';
+    if (!error) return '';
+    return msgs[error]?.[lang] ?? msgs[error]?.['fr'] ?? 'Erreur';
   }
 
   // ── Persistance ───────────────────────────────────────────────────────────
