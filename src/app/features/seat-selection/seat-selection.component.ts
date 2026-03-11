@@ -165,22 +165,21 @@ export class SeatSelectionComponent implements OnInit {
       { rowId: 'front', seats: [mk('F1'), mk('F2')], isDriverRow: true },
       // Row A — 4 seats: [A1,A2 | A3,A4]
       { rowId: 'A', seats: [mk('A1'), mk('A2'), mk('A3'), mk('A4')], aisleAfter: 2 },
-      // Row B — 3 seats: [B1 | B2,B3]
-      { rowId: 'B', seats: [mk('B1'), mk('B2'), mk('B3')], aisleAfter: 1 },
-      // Row C — 3 seats: [C1 | C2,C3]
-      { rowId: 'C', seats: [mk('C1'), mk('C2'), mk('C3')], aisleAfter: 1 },
+      // Row B — 3 seats: [B1,B2 | B3]  (2 gauche, 1 droite)
+      { rowId: 'B', seats: [mk('B1'), mk('B2'), mk('B3')], aisleAfter: 2 },
+      // Row C — 3 seats: [C1,C2 | C3]  (2 gauche, 1 droite)
+      { rowId: 'C', seats: [mk('C1'), mk('C2'), mk('C3')], aisleAfter: 2 },
       // Row D — 4 seats: [D1,D2 | D3,D4]
       { rowId: 'D', seats: [mk('D1'), mk('D2'), mk('D3'), mk('D4')], aisleAfter: 2 },
     ];
   }
 
   // 10-seat VIP minibus
-  // Front: [driver][F1]    (1 passenger front)
-  // Row A: [A1] | [A2]     (2 seats — 1 left, 1 right)
-  // Row B: [B1] | [B2]
-  // Row C: [C1] | [C2]
-  // Row D: [D1] | [D2]
-  // Row E: [E1][E2]        (rear bench — 2 side-by-side)
+  // Front: [driver][F1]          (1 passenger front)
+  // Row A: [A1,A2] | [A3]        (3 seats — 2 gauche, 1 droite)
+  // Row B: [B1,B2] | [B3]        (3 seats — 2 gauche, 1 droite)
+  // Row C: [C1,C2] | [C3]        (3 seats — 2 gauche, 1 droite)
+  // Total: 1 + 9 = 10 places
   private buildMinibus10Layout(): SeatRow[] {
     const booked = BOOKED['minibus10'];
     const mk = (num: string): Seat => ({
@@ -189,11 +188,9 @@ export class SeatSelectionComponent implements OnInit {
 
     return [
       { rowId: 'front', seats: [mk('F1')], isDriverRow: true },
-      { rowId: 'A', seats: [mk('A1'), mk('A2')], aisleAfter: 1 },
-      { rowId: 'B', seats: [mk('B1'), mk('B2')], aisleAfter: 1 },
-      { rowId: 'C', seats: [mk('C1'), mk('C2')], aisleAfter: 1 },
-      { rowId: 'D', seats: [mk('D1'), mk('D2')], aisleAfter: 1 },
-      { rowId: 'E', seats: [mk('E1'), mk('E2')], aisleAfter: 1 },
+      { rowId: 'A', seats: [mk('A1'), mk('A2'), mk('A3')], aisleAfter: 2 },
+      { rowId: 'B', seats: [mk('B1'), mk('B2'), mk('B3')], aisleAfter: 2 },
+      { rowId: 'C', seats: [mk('C1'), mk('C2'), mk('C3')], aisleAfter: 2 },
     ];
   }
 }
