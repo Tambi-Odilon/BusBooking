@@ -19,12 +19,12 @@ export type MobileProvider = 'mvola' | 'orangemoney' | 'airtelmoney';
   styleUrl: './payment.component.scss',
 })
 export class PaymentComponent implements OnInit {
-  private bookingService   = inject(BookingService);
-  private mvolaService     = inject(MVolaService);
-  private omService        = inject(OrangeMoneyService);
-  private airtelService    = inject(AirtelMoneyService);
-  private router           = inject(Router);
-  readonly i18n            = inject(I18nService);
+  private bookingService = inject(BookingService);
+  private mvolaService   = inject(MVolaService);
+  private omService      = inject(OrangeMoneyService);
+  private airtelService  = inject(AirtelMoneyService);
+  private router         = inject(Router);
+  readonly i18n          = inject(I18nService);
 
   readonly selectedBus   = this.bookingService.selectedBus;
   readonly selectedSeats = this.bookingService.selectedSeats;
@@ -36,23 +36,23 @@ export class PaymentComponent implements OnInit {
   readonly isProcessing   = signal(false);
 
   // ── MVola state ─────────────────────────────────────────────────────────
-  readonly mvolaStatus   = this.mvolaService.paymentStatus;
-  readonly mvolaError    = this.mvolaService.paymentError;
-  readonly mvolaCorrelId = this.mvolaService.serverCorrelationId;
-  readonly mvolaStep     = signal<'form' | 'waiting' | 'done'>('form');
+  readonly mvolaStatus    = this.mvolaService.paymentStatus;
+  readonly mvolaError     = this.mvolaService.paymentError;
+  readonly mvolaCorrelId  = this.mvolaService.serverCorrelationId;
+  readonly mvolaStep      = signal<'form' | 'waiting'>('form');
   readonly merchantNumber = MVOLA_CONFIG.merchantNumber;
 
   // ── Orange Money state ───────────────────────────────────────────────────
   readonly omStatus     = this.omService.paymentStatus;
   readonly omError      = this.omService.paymentError;
   readonly omPaymentUrl = this.omService.paymentUrl;
-  readonly omStep       = signal<'form' | 'waiting' | 'done'>('form');
+  readonly omStep       = signal<'form' | 'waiting'>('form');
 
   // ── Airtel Money state ───────────────────────────────────────────────────
   readonly airtelStatus = this.airtelService.paymentStatus;
   readonly airtelError  = this.airtelService.paymentError;
   readonly airtelTxId   = this.airtelService.transactionId;
-  readonly airtelStep   = signal<'form' | 'waiting' | 'done'>('form');
+  readonly airtelStep   = signal<'form' | 'waiting'>('form');
 
   paymentMethodModel: PaymentMethod   = 'card';
   mobileProviderModel: MobileProvider = 'mvola';
@@ -69,10 +69,12 @@ export class PaymentComponent implements OnInit {
     ];
   }
 
-  readonly mobileProviders: { value: MobileProvider; label: string; subtitle: string; short: string; color: string; accent: string }[] = [
-    { value: 'mvola',       label: 'MVola',        subtitle: 'Telma (034, 038)',    short: 'M',  color: 'bg-orange-500',  accent: 'orange' },
-    { value: 'orangemoney', label: 'Orange Money', subtitle: 'Orange (032, 037)',   short: 'OM', color: 'bg-orange-600',  accent: 'amber'  },
-    { value: 'airtelmoney', label: 'Airtel Money', subtitle: 'Airtel (033)',        short: 'AM', color: 'bg-red-600',     accent: 'red'    },
+  readonly mobileProviders: {
+    value: MobileProvider; label: string; subtitle: string; short: string; color: string;
+  }[] = [
+    { value: 'mvola',       label: 'MVola',        subtitle: 'Telma (034, 038)',  short: 'M',  color: 'bg-orange-500' },
+    { value: 'orangemoney', label: 'Orange Money', subtitle: 'Orange (032, 037)', short: 'OM', color: 'bg-orange-600' },
+    { value: 'airtelmoney', label: 'Airtel Money', subtitle: 'Airtel (033)',      short: 'AM', color: 'bg-red-600'    },
   ];
 
   readonly ticketTotal = computed(() => {
@@ -81,33 +83,45 @@ export class PaymentComponent implements OnInit {
   });
   readonly total = computed(() => this.ticketTotal() + 2000);
 
-  // ── Libellés de statut dynamiques ────────────────────────────────────────
-  readonly mvolaStatusLabel = computed(() => {
+  // ── Labels de statut ─────────────────────────────────────────────────────
+  readonly mvolaStatusLabel = computed((): string => {
     const map: Record<MVolaPaymentStatus, string> = {
-      idle: '', authenticating: '🔐 Connexion à MVola...', pending: '📤 Envoi de la demande...',
-      polling: '⏳ En attente de confirmation — Validez sur votre téléphone', success: '✅ Paiement confirmé !', failed: '❌ Paiement échoué',
+      idle:           '',
+      authenticating: '🔐 Connexion à MVola...',
+      pending:        '📤 Envoi de la demande...',
+      polling:        '⏳ En attente — Validez sur votre téléphone',
+      success:        '✅ Paiement MVola confirmé !',
+      failed:         '❌ Paiement échoué',
     };
     return map[this.mvolaStatus()];
   });
 
-  readonly omStatusLabel = computed(() => {
+  readonly omStatusLabel = computed((): string => {
     const map: Record<OmPaymentStatus, string> = {
-      idle: '', authenticating: '🔐 Connexion à Orange Money...', pending: '📤 Création du lien de paiement...',
-      waiting_otp: '📱 Validez votre OTP Orange Money sur votre téléphone', polling: '⏳ Vérification du paiement...',
-      success: '✅ Paiement Orange Money confirmé !', failed: '❌ Paiement échoué',
+      idle:           '',
+      authenticating: '🔐 Connexion à Orange Money...',
+      pending:        '📤 Création du lien de paiement...',
+      waiting_otp:    '📱 Validez votre OTP Orange Money',
+      polling:        '⏳ Vérification du paiement...',
+      success:        '✅ Paiement Orange Money confirmé !',
+      failed:         '❌ Paiement échoué',
     };
     return map[this.omStatus()];
   });
 
-  readonly airtelStatusLabel = computed(() => {
+  readonly airtelStatusLabel = computed((): string => {
     const map: Record<AirtelPaymentStatus, string> = {
-      idle: '', authenticating: '🔐 Connexion à Airtel Money...', pending: '📤 Envoi de la demande USSD...',
-      polling: '⏳ En attente de confirmation PIN — Validez sur votre téléphone', success: '✅ Paiement Airtel Money confirmé !', failed: '❌ Paiement échoué',
+      idle:           '',
+      authenticating: '🔐 Connexion à Airtel Money...',
+      pending:        '📤 Envoi de la demande USSD...',
+      polling:        '⏳ En attente PIN — Validez sur votre téléphone',
+      success:        '✅ Paiement Airtel Money confirmé !',
+      failed:         '❌ Paiement échoué',
     };
     return map[this.airtelStatus()];
   });
 
-  readonly currentStatusLabel = computed(() => {
+  readonly currentStatusLabel = computed((): string => {
     switch (this.mobileProvider()) {
       case 'mvola':       return this.mvolaStatusLabel();
       case 'orangemoney': return this.omStatusLabel();
@@ -115,17 +129,19 @@ export class PaymentComponent implements OnInit {
     }
   });
 
-  readonly currentStatusColor = computed(() => {
+  readonly currentStatusColor = computed((): string => {
     const p = this.mobileProvider();
-    const s = p === 'mvola' ? this.mvolaStatus() : p === 'orangemoney' ? this.omStatus() : this.airtelStatus();
+    const s = p === 'mvola'       ? this.mvolaStatus()
+            : p === 'orangemoney' ? this.omStatus()
+            :                       this.airtelStatus();
     if (s === 'success') return 'bg-green-50 border-green-300 text-green-800';
     if (s === 'failed')  return 'bg-red-50 border-red-300 text-red-800';
-    if (p === 'airtelmoney') return 'bg-red-50 border-red-300 text-red-800';
-    if (p === 'orangemoney') return 'bg-amber-50 border-amber-300 text-amber-800';
-    return 'bg-orange-50 border-orange-300 text-orange-800';
+    if (p === 'airtelmoney') return 'bg-red-50 border-red-300 text-red-900';
+    if (p === 'orangemoney') return 'bg-amber-50 border-amber-300 text-amber-900';
+    return 'bg-orange-50 border-orange-300 text-orange-900';
   });
 
-  readonly currentStep = computed(() => {
+  readonly currentStep = computed((): 'form' | 'waiting' => {
     switch (this.mobileProvider()) {
       case 'mvola':       return this.mvolaStep();
       case 'orangemoney': return this.omStep();
@@ -133,7 +149,7 @@ export class PaymentComponent implements OnInit {
     }
   });
 
-  readonly currentError = computed(() => {
+  readonly currentError = computed((): string | null => {
     switch (this.mobileProvider()) {
       case 'mvola':       return this.mvolaError();
       case 'orangemoney': return this.omError();
@@ -141,11 +157,14 @@ export class PaymentComponent implements OnInit {
     }
   });
 
-  readonly currentIsPolling = computed(() => {
+  readonly currentIsPolling = computed((): boolean => {
     const p = this.mobileProvider();
-    if (p === 'mvola')       return ['pending','authenticating','polling'].includes(this.mvolaStatus());
-    if (p === 'orangemoney') return ['pending','authenticating','waiting_otp','polling'].includes(this.omStatus());
-    if (p === 'airtelmoney') return ['pending','authenticating','polling'].includes(this.airtelStatus());
+    if (p === 'mvola')
+      return ['authenticating', 'pending', 'polling'].includes(this.mvolaStatus());
+    if (p === 'orangemoney')
+      return ['authenticating', 'pending', 'waiting_otp', 'polling'].includes(this.omStatus());
+    if (p === 'airtelmoney')
+      return ['authenticating', 'pending', 'polling'].includes(this.airtelStatus());
     return false;
   });
 
@@ -154,6 +173,7 @@ export class PaymentComponent implements OnInit {
       this.router.navigate(['/']);
   }
 
+  // ── Form helpers ─────────────────────────────────────────────────────────
   formatCard(value: string): void {
     const nums = value.replace(/\D/g, '').slice(0, 16);
     this.cardNumber = nums.match(/.{1,4}/g)?.join(' ') ?? nums;
@@ -167,8 +187,13 @@ export class PaymentComponent implements OnInit {
   isFormValid(): boolean {
     switch (this.paymentMethod()) {
       case 'card':
-        return this.cardNumber.replace(/\s/g, '').length === 16 && !!this.cardName.trim() && this.expiry.length === 5 && this.cvv.length === 3;
-      case 'mobilemoney':
+        return (
+          this.cardNumber.replace(/\s/g, '').length === 16 &&
+          !!this.cardName.trim() &&
+          this.expiry.length === 5 &&
+          this.cvv.length === 3
+        );
+      case 'mobilemoney': {
         const phone = this.mobilePhone.replace(/[\s\-().+]/g, '');
         if (this.mobileProvider() === 'mvola')
           return /^(0(34|38)\d{7}|261(34|38)\d{7})$/.test(phone);
@@ -177,28 +202,27 @@ export class PaymentComponent implements OnInit {
         if (this.mobileProvider() === 'airtelmoney')
           return /^(033\d{7}|26133\d{7})$/.test(phone);
         return !!phone;
+      }
       default: return true;
     }
   }
 
   isPhoneValid(): boolean {
-    if (this.mobilePhone.length < 9) return true; // pas encore saisi
+    if (this.mobilePhone.length < 9) return true;
     return this.isFormValid();
   }
 
   getPhoneError(): string {
-    const p = this.mobileProvider();
-    if (p === 'mvola')       return 'Numéro MVola invalide (034 ou 038 requis)';
-    if (p === 'orangemoney') return 'Numéro Orange invalide (032 ou 037 requis)';
-    if (p === 'airtelmoney') return 'Numéro Airtel invalide (033 requis)';
+    if (this.mobileProvider() === 'mvola')       return 'Numéro MVola invalide (034 ou 038 requis)';
+    if (this.mobileProvider() === 'orangemoney') return 'Numéro Orange invalide (032 ou 037 requis)';
+    if (this.mobileProvider() === 'airtelmoney') return 'Numéro Airtel invalide (033 requis)';
     return '';
   }
 
   getPhonePlaceholder(): string {
-    const p = this.mobileProvider();
-    if (p === 'mvola')       return '034 12 345 67';
-    if (p === 'orangemoney') return '032 12 345 67';
-    if (p === 'airtelmoney') return '033 12 345 67';
+    if (this.mobileProvider() === 'mvola')       return '034 12 345 67';
+    if (this.mobileProvider() === 'orangemoney') return '032 12 345 67';
+    if (this.mobileProvider() === 'airtelmoney') return '033 12 345 67';
     return '0XX XX XXX XX';
   }
 
@@ -207,7 +231,6 @@ export class PaymentComponent implements OnInit {
   onProviderChange(provider: MobileProvider): void {
     this.mobileProvider.set(provider);
     this.mobilePhone = '';
-    // Reset statuts des services
     this.mvolaStep.set('form');
     this.omStep.set('form');
     this.airtelStep.set('form');
@@ -216,63 +239,61 @@ export class PaymentComponent implements OnInit {
     this.airtelService.reset();
   }
 
+  // ── Dispatch paiement ────────────────────────────────────────────────────
   async handlePayment(): Promise<void> {
     if (!this.isFormValid() || this.isProcessing()) return;
 
     if (this.paymentMethod() === 'mobilemoney') {
-      switch (this.mobileProvider()) {
-        case 'mvola':       await this.handleMVolaPayment(); return;
-        case 'orangemoney': await this.handleOrangeMoneyPayment(); return;
-        case 'airtelmoney': await this.handleAirtelPayment(); return;
-      }
+      if (this.mobileProvider() === 'mvola')       { await this.handleMVolaPayment();   return; }
+      if (this.mobileProvider() === 'orangemoney') { await this.handleOrangePayment();  return; }
+      if (this.mobileProvider() === 'airtelmoney') { await this.handleAirtelPayment();  return; }
     }
 
     // Autres méthodes (simulation)
     this.isProcessing.set(true);
     await new Promise(r => setTimeout(r, 2000));
-    this.completeBooking(`ST${Date.now().toString().slice(-8)}`);
+    this.finishBooking('ST' + Date.now().toString().slice(-8));
   }
 
   // ── MVola ─────────────────────────────────────────────────────────────────
-  async handleMVolaPayment(): Promise<void> {
+  private async handleMVolaPayment(): Promise<void> {
     this.isProcessing.set(true);
     this.mvolaStep.set('waiting');
-    const bus    = this.selectedBus();
-    const desc   = `Soatrans ${bus?.name ?? ''}`;
-    const result = await this.mvolaService.processMVolaPayment(this.mobilePhone, this.total(), desc);
+    const bus  = this.selectedBus();
+    const desc = 'Soatrans ' + (bus?.name ?? '');
+    const result = await this.mvolaService.processMVolaPayment(
+      this.mobilePhone, this.total(), desc
+    );
     this.isProcessing.set(false);
     if (result.success) {
-      this.mvolaStep.set('done');
       await new Promise(r => setTimeout(r, 1200));
-      this.completeBooking(result.transactionId ?? `MVOLA-${Date.now().toString().slice(-8)}`);
+      this.finishBooking(result.transactionId ?? ('MVOLA-' + Date.now().toString().slice(-8)));
     } else {
       this.mvolaStep.set('form');
     }
   }
 
   // ── Orange Money ──────────────────────────────────────────────────────────
-  async handleOrangeMoneyPayment(): Promise<void> {
+  private async handleOrangePayment(): Promise<void> {
     this.isProcessing.set(true);
     this.omStep.set('waiting');
-    const bus      = this.selectedBus();
-    const ref      = `Soatrans-${bus?.id ?? ''-${Date.now()}`;
-    const result   = await this.omService.processPayment(this.total(), ref);
+    const bus = this.selectedBus();
+    const ref = 'Soatrans-' + (bus?.id ?? '') + '-' + Date.now();
+    const result = await this.omService.processPayment(this.total(), ref);
     if (!result.success) {
       this.isProcessing.set(false);
       this.omStep.set('form');
       return;
     }
-    // Orange Money : le paiement est initié, on poll maintenant
     if (result.payToken) {
       try {
-        const finalResult = await this.omService.pollPaymentStatus(result.payToken);
+        const final = await this.omService.pollPaymentStatus(result.payToken);
         this.isProcessing.set(false);
-        if (finalResult.success) {
-          this.omStep.set('done');
+        if (final.success) {
           await new Promise(r => setTimeout(r, 1200));
-          this.completeBooking(finalResult.transactionId ?? `OM-${Date.now().toString().slice(-8)}`);
+          this.finishBooking(final.transactionId ?? ('OM-' + Date.now().toString().slice(-8)));
         }
-      } catch (e) {
+      } catch {
         this.isProcessing.set(false);
         this.omStep.set('form');
       }
@@ -280,33 +301,45 @@ export class PaymentComponent implements OnInit {
   }
 
   // ── Airtel Money ──────────────────────────────────────────────────────────
-  async handleAirtelPayment(): Promise<void> {
+  private async handleAirtelPayment(): Promise<void> {
     this.isProcessing.set(true);
     this.airtelStep.set('waiting');
-    const bus    = this.selectedBus();
-    const ref    = `Soatrans ${bus?.name ?? ''}`;
-    const result = await this.airtelService.processPayment(this.mobilePhone, this.total(), ref);
+    const bus = this.selectedBus();
+    const ref = 'Soatrans ' + (bus?.name ?? '');
+    const result = await this.airtelService.processPayment(
+      this.mobilePhone, this.total(), ref
+    );
     this.isProcessing.set(false);
     if (result.success) {
-      this.airtelStep.set('done');
       await new Promise(r => setTimeout(r, 1200));
-      this.completeBooking(result.transactionId ?? `AM-${Date.now().toString().slice(-8)}`);
+      this.finishBooking(result.transactionId ?? ('AM-' + Date.now().toString().slice(-8)));
     } else {
       this.airtelStep.set('form');
     }
   }
 
+  // ── Retry ─────────────────────────────────────────────────────────────────
   retryPayment(): void {
-    const p = this.mobileProvider();
-    if (p === 'mvola')       { this.mvolaStep.set('form'); this.mvolaService.paymentStatus.set('idle'); this.mvolaService.paymentError.set(null); }
-    if (p === 'orangemoney') { this.omStep.set('form'); this.omService.reset(); }
-    if (p === 'airtelmoney') { this.airtelStep.set('form'); this.airtelService.reset(); }
+    if (this.mobileProvider() === 'mvola') {
+      this.mvolaStep.set('form');
+      this.mvolaService.paymentStatus.set('idle');
+      this.mvolaService.paymentError.set(null);
+    }
+    if (this.mobileProvider() === 'orangemoney') {
+      this.omStep.set('form');
+      this.omService.reset();
+    }
+    if (this.mobileProvider() === 'airtelmoney') {
+      this.airtelStep.set('form');
+      this.airtelService.reset();
+    }
     this.isProcessing.set(false);
   }
 
-  private completeBooking(ref: string): void {
+  // ── Finalisation réservation ──────────────────────────────────────────────
+  private finishBooking(ref: string): void {
     this.bookingService.setBookingReference(ref);
     this.isProcessing.set(false);
-    this.router.navigate(['confirmation']);
+    this.router.navigate(['/confirmation']);
   }
 }
