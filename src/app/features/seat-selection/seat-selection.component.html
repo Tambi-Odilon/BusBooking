@@ -1,5 +1,6 @@
 <div class="space-y-6">
 
+  <!-- Retour -->
   <button (click)="goBack()" class="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium">
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -8,12 +9,18 @@
     {{ i18n.t().seats.backBtn }}
   </button>
 
+  <!-- Bandeau bus -->
   @if (selectedBus()) {
     <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
       <div class="flex justify-between items-center">
-        <div>
-          <h3 class="font-bold text-slate-900">{{ selectedBus()!.name }}</h3>
-          <p class="text-sm text-slate-600">{{ searchParams()?.from }} → {{ searchParams()?.to }} · {{ selectedBus()!.departure }}</p>
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">{{ layoutLabel() }}</span>
+          <div>
+            <h3 class="font-bold text-slate-900">{{ selectedBus()!.name }}</h3>
+            <p class="text-sm text-slate-600">
+              {{ selectedBus()!.type }} · {{ searchParams()?.from }} → {{ searchParams()?.to }} · {{ selectedBus()!.departure }}
+            </p>
+          </div>
         </div>
         <div class="text-right">
           <p class="text-xs text-slate-500">{{ i18n.t().seats.baseFare }}</p>
@@ -24,74 +31,245 @@
   }
 
   <div class="grid lg:grid-cols-3 gap-6">
+
+    <!-- Plan des sièges -->
     <div class="lg:col-span-2">
       <div class="bg-white rounded-2xl border border-slate-200 p-6">
-        <div class="flex items-center justify-between mb-6">
+
+        <!-- Titre + légende -->
+        <div class="flex items-center justify-between mb-4">
           <h3 class="font-bold text-slate-900">{{ i18n.t().seats.chooseTitle }}</h3>
-          <div class="flex items-center gap-2 text-slate-500 text-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-            </svg>
-            {{ i18n.t().seats.driver }}
-          </div>
         </div>
-        <div class="flex gap-4 mb-6 text-xs">
+        <div class="flex flex-wrap gap-4 mb-6 text-xs">
           <div class="flex items-center gap-2">
-            <div class="w-6 h-6 rounded-lg bg-white border-2 border-slate-300"></div>
+            <div class="w-8 h-8 rounded-lg bg-white border-2 border-slate-300"></div>
             <span class="text-slate-600">{{ i18n.t().seats.legendAvailable }}</span>
           </div>
           <div class="flex items-center gap-2">
-            <div class="w-6 h-6 rounded-lg bg-blue-600 border-2 border-blue-700"></div>
+            <div class="w-8 h-8 rounded-lg bg-blue-600 border-2 border-blue-700"></div>
             <span class="text-slate-600">{{ i18n.t().seats.legendSelected }}</span>
           </div>
           <div class="flex items-center gap-2">
-            <div class="w-6 h-6 rounded-lg bg-slate-200 border-2 border-slate-300"></div>
+            <div class="w-8 h-8 rounded-lg bg-slate-100 border-2 border-slate-200"></div>
             <span class="text-slate-600">{{ i18n.t().seats.legendBooked }}</span>
           </div>
-        </div>
-        <div class="space-y-2">
-          @for (row of rows; track row; let rowIndex = $index) {
-            <div class="flex gap-2 justify-center items-center">
-              <span class="text-xs text-slate-400 w-5 text-center font-medium">{{ getRowLabel(rowIndex) }}</span>
-              @for (colIndex of [0, 1]; track colIndex) {
-                @let seat = seats()[rowIndex * 4 + colIndex];
-                @if (seat) {
-                  <button (click)="toggleSeat(seat.number)" [disabled]="seat.status === 'booked'"
-                          [class]="getSeatClass(seat)" [title]="seat.number">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3"/>
-                      <path d="M3 11v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H7v-2a2 2 0 0 0-4 0Z"/>
-                      <path d="M5 18v2"/><path d="M19 18v2"/>
-                    </svg>
-                  </button>
-                }
-              }
-              <div class="w-6"></div>
-              @for (colIndex of [2, 3]; track colIndex) {
-                @let seat = seats()[rowIndex * 4 + colIndex];
-                @if (seat) {
-                  <button (click)="toggleSeat(seat.number)" [disabled]="seat.status === 'booked'"
-                          [class]="getSeatClass(seat)" [title]="seat.number">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3"/>
-                      <path d="M3 11v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H7v-2a2 2 0 0 0-4 0Z"/>
-                      <path d="M5 18v2"/><path d="M19 18v2"/>
-                    </svg>
-                  </button>
-                }
-              }
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-amber-100 border-2 border-amber-300 flex items-center justify-center">
+              <span class="text-xs">🚗</span>
             </div>
-          }
+            <span class="text-slate-600">{{ i18n.t().seats.driver }}</span>
+          </div>
         </div>
+
+        <!-- ═══════════════════════════════════════════════════
+             GRAND BUS (bus) — 12 rangées × 4 places
+             ═══════════════════════════════════════════════════ -->
+        @if (layout() === 'bus') {
+          <div class="flex flex-col items-center gap-1.5">
+            <!-- Carrosserie avant -->
+            <div class="w-full max-w-[220px] h-6 bg-slate-200 rounded-t-2xl mb-1 flex items-center justify-center">
+              <span class="text-xs text-slate-500 font-medium">▲ {{ i18n.t().seats.front }}</span>
+            </div>
+
+            @for (row of seatRows(); track row.rowId) {
+              @if (row.isDriverRow) {
+                <!-- Rangée conducteur -->
+                <div class="w-full max-w-[220px] flex items-center justify-between px-2 py-1.5 bg-amber-50 border border-amber-200 rounded-xl mb-1">
+                  <div class="w-10 h-10 rounded-lg bg-amber-100 border-2 border-amber-300 flex items-center justify-center text-lg">🚗</div>
+                  <span class="text-xs text-amber-700 font-medium">{{ i18n.t().seats.driver }}</span>
+                  <div class="w-10"></div>
+                </div>
+              } @else {
+                <!-- Rangée passagers -->
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs text-slate-400 w-5 text-right font-semibold">{{ row.rowId }}</span>
+                  <!-- Sièges gauche -->
+                  @for (seat of row.seats.slice(0, row.aisleAfter ?? 2); track seat.number) {
+                    <button (click)="toggleSeat(seat.number)" [disabled]="seat.status === 'booked'"
+                            [class]="getSeatClass(seat)" [title]="seat.number">
+                      <span class="text-[10px] font-semibold leading-none">{{ seat.number }}</span>
+                    </button>
+                  }
+                  <!-- Couloir -->
+                  <div class="w-5 border-l-2 border-dashed border-slate-200 h-10"></div>
+                  <!-- Sièges droite -->
+                  @for (seat of row.seats.slice(row.aisleAfter ?? 2); track seat.number) {
+                    <button (click)="toggleSeat(seat.number)" [disabled]="seat.status === 'booked'"
+                            [class]="getSeatClass(seat)" [title]="seat.number">
+                      <span class="text-[10px] font-semibold leading-none">{{ seat.number }}</span>
+                    </button>
+                  }
+                </div>
+              }
+            }
+            <!-- Carrosserie arrière -->
+            <div class="w-full max-w-[220px] h-5 bg-slate-200 rounded-b-2xl mt-1"></div>
+          </div>
+        }
+
+        <!-- ═══════════════════════════════════════════════════
+             MINIBUS 16 PLACES
+             Avant: [🚗 conducteur][F1][F2]
+             A: [A1][A2] | [A3][A4]
+             B: [B1]     | [B2][B3]
+             C: [C1]     | [C2][C3]
+             D: [D1][D2] | [D3][D4]
+             ═══════════════════════════════════════════════════ -->
+        @if (layout() === 'minibus16') {
+          <div class="flex flex-col items-center gap-2">
+            <!-- Carrosserie avant -->
+            <div class="w-full max-w-[260px] h-6 bg-slate-200 rounded-t-2xl flex items-center justify-center">
+              <span class="text-xs text-slate-500 font-medium">▲ {{ i18n.t().seats.front }}</span>
+            </div>
+
+            @for (row of seatRows(); track row.rowId) {
+              @if (row.isDriverRow) {
+                <!-- Rangée conducteur + 2 passagers avant -->
+                <div class="w-full max-w-[260px] flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl">
+                  <!-- Conducteur (gauche) -->
+                  <div class="w-10 h-10 rounded-lg bg-amber-100 border-2 border-amber-300 flex items-center justify-center text-lg flex-shrink-0">🚗</div>
+                  <div class="flex-1 flex justify-end gap-2">
+                    <!-- 2 passagers avant (côté passager) -->
+                    @for (seat of row.seats; track seat.number) {
+                      <button (click)="toggleSeat(seat.number)" [disabled]="seat.status === 'booked'"
+                              [class]="getSeatClass(seat)" [title]="seat.number">
+                        <span class="text-[10px] font-semibold leading-none">{{ seat.number }}</span>
+                      </button>
+                    }
+                  </div>
+                </div>
+              } @else {
+                <!-- Rangées passagers -->
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-slate-400 w-5 text-right font-semibold">{{ row.rowId }}</span>
+
+                  @if (row.seats.length === 4) {
+                    <!-- 4 sièges : [s0,s1 | s2,s3] -->
+                    @for (seat of row.seats.slice(0, 2); track seat.number) {
+                      <button (click)="toggleSeat(seat.number)" [disabled]="seat.status === 'booked'"
+                              [class]="getSeatClass(seat)" [title]="seat.number">
+                        <span class="text-[10px] font-semibold leading-none">{{ seat.number }}</span>
+                      </button>
+                    }
+                    <div class="w-6 border-l-2 border-dashed border-slate-200 h-10"></div>
+                    @for (seat of row.seats.slice(2); track seat.number) {
+                      <button (click)="toggleSeat(seat.number)" [disabled]="seat.status === 'booked'"
+                              [class]="getSeatClass(seat)" [title]="seat.number">
+                        <span class="text-[10px] font-semibold leading-none">{{ seat.number }}</span>
+                      </button>
+                    }
+                  } @else {
+                    <!-- 3 sièges : [s0 | s1,s2] -->
+                    <button (click)="toggleSeat(row.seats[0].number)" [disabled]="row.seats[0].status === 'booked'"
+                            [class]="getSeatClass(row.seats[0])" [title]="row.seats[0].number">
+                      <span class="text-[10px] font-semibold leading-none">{{ row.seats[0].number }}</span>
+                    </button>
+                    <div class="w-6 border-l-2 border-dashed border-slate-200 h-10"></div>
+                    @for (seat of row.seats.slice(1); track seat.number) {
+                      <button (click)="toggleSeat(seat.number)" [disabled]="seat.status === 'booked'"
+                              [class]="getSeatClass(seat)" [title]="seat.number">
+                        <span class="text-[10px] font-semibold leading-none">{{ seat.number }}</span>
+                      </button>
+                    }
+                  }
+                </div>
+              }
+            }
+            <!-- Carrosserie arrière -->
+            <div class="w-full max-w-[260px] h-5 bg-slate-200 rounded-b-2xl"></div>
+          </div>
+        }
+
+        <!-- ═══════════════════════════════════════════════════
+             MINIBUS VIP 10 PLACES
+             Avant: [🚗][F1]
+             A–E:   [s1] (couloir spacieux) [s2]
+             ═══════════════════════════════════════════════════ -->
+        @if (layout() === 'minibus10') {
+          <div class="flex flex-col items-center gap-2">
+            <!-- Carrosserie avant -->
+            <div class="w-full max-w-[220px] h-6 bg-violet-200 rounded-t-2xl flex items-center justify-center">
+              <span class="text-xs text-violet-700 font-medium">▲ {{ i18n.t().seats.front }}</span>
+            </div>
+
+            @for (row of seatRows(); track row.rowId) {
+              @if (row.isDriverRow) {
+                <div class="w-full max-w-[220px] flex items-center gap-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl">
+                  <div class="w-10 h-10 rounded-lg bg-amber-100 border-2 border-amber-300 flex items-center justify-center text-lg flex-shrink-0">🚗</div>
+                  <!-- 1 passager avant -->
+                  @for (seat of row.seats; track seat.number) {
+                    <button (click)="toggleSeat(seat.number)" [disabled]="seat.status === 'booked'"
+                            [class]="getSeatClass(seat)" [title]="seat.number">
+                      <span class="text-[10px] font-semibold leading-none">{{ seat.number }}</span>
+                    </button>
+                  }
+                </div>
+              } @else {
+                <!-- Rangées VIP : siège large gauche | couloir large | siège large droite -->
+                <div class="flex items-center gap-3">
+                  <span class="text-xs text-slate-400 w-5 text-right font-semibold">{{ row.rowId }}</span>
+                  <!-- Siège gauche (plus large pour VIP) -->
+                  <button (click)="toggleSeat(row.seats[0].number)" [disabled]="row.seats[0].status === 'booked'"
+                          [class]="getVipSeatClass(row.seats[0])" [title]="row.seats[0].number">
+                    <div class="flex flex-col items-center gap-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3"/>
+                        <path d="M3 11v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H7v-2a2 2 0 0 0-4 0Z"/>
+                        <path d="M5 18v2"/><path d="M19 18v2"/>
+                      </svg>
+                      <span class="text-[9px] font-bold leading-none">{{ row.seats[0].number }}</span>
+                    </div>
+                  </button>
+                  <!-- Couloir large VIP -->
+                  <div class="w-10 flex items-center justify-center">
+                    <div class="h-full border-l border-dashed border-slate-200"></div>
+                  </div>
+                  <!-- Siège droit -->
+                  <button (click)="toggleSeat(row.seats[1].number)" [disabled]="row.seats[1].status === 'booked'"
+                          [class]="getVipSeatClass(row.seats[1])" [title]="row.seats[1].number">
+                    <div class="flex flex-col items-center gap-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3"/>
+                        <path d="M3 11v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H7v-2a2 2 0 0 0-4 0Z"/>
+                        <path d="M5 18v2"/><path d="M19 18v2"/>
+                      </svg>
+                      <span class="text-[9px] font-bold leading-none">{{ row.seats[1].number }}</span>
+                    </div>
+                  </button>
+                </div>
+              }
+            }
+            <!-- Carrosserie arrière -->
+            <div class="w-full max-w-[220px] h-5 bg-violet-200 rounded-b-2xl"></div>
+          </div>
+
+          <!-- Badge VIP -->
+          <div class="mt-4 flex justify-center">
+            <span class="inline-flex items-center gap-2 px-4 py-2 bg-violet-50 border border-violet-200 rounded-full text-xs font-semibold text-violet-700">
+              ⭐ {{ i18n.t().seats.vipLabel }}
+            </span>
+          </div>
+        }
+
       </div>
     </div>
 
+    <!-- Récapitulatif -->
     <div class="lg:col-span-1">
       <div class="bg-white rounded-2xl border border-slate-200 p-6 sticky top-24">
         <h3 class="font-bold text-slate-900 mb-4">{{ i18n.t().seats.summaryTitle }}</h3>
+
+        <!-- Capacité du véhicule -->
+        <div class="mb-4 p-3 bg-slate-50 rounded-xl flex items-center gap-3">
+          <span class="text-xl">{{ layoutLabel() }}</span>
+          <div>
+            <p class="text-xs font-semibold text-slate-700">{{ selectedBus()?.type }}</p>
+            <p class="text-xs text-slate-500">{{ i18n.t().seats.capacity }} {{ selectedBus()?.capacity }} {{ i18n.t().seats.places }}</p>
+          </div>
+        </div>
+
         <div class="mb-4">
           <p class="text-sm text-slate-500 mb-2">{{ i18n.t().seats.selectedSeats }}</p>
           <div class="flex flex-wrap gap-2 min-h-[40px]">
@@ -106,6 +284,7 @@
             {{ i18n.t().seats.seatsCount(selectedSeats().length, searchParams()?.passengers ?? 0) }}
           </p>
         </div>
+
         <div class="border-t border-slate-100 pt-4 space-y-2 mb-4">
           <div class="flex justify-between text-sm">
             <span class="text-slate-600">{{ selectedSeats().length }} × {{ selectedBus()?.price | number }} Ar</span>
@@ -120,12 +299,14 @@
             <span class="text-xl font-bold text-blue-600">{{ total() | number }} Ar</span>
           </div>
         </div>
+
         <button (click)="continueToPassengers()"
                 [disabled]="selectedSeats().length !== searchParams()?.passengers"
                 class="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:cursor-not-allowed
                        text-white disabled:text-slate-400 font-semibold rounded-xl transition-all text-sm">
           {{ i18n.t().seats.continueBtn }}
         </button>
+
         @if (selectedSeats().length < (searchParams()?.passengers ?? 0)) {
           <p class="text-xs text-amber-600 text-center mt-2">
             {{ i18n.t().seats.selectMore((searchParams()?.passengers ?? 0) - selectedSeats().length) }}
@@ -133,6 +314,6 @@
         }
       </div>
     </div>
-  </div>
 
+  </div>
 </div>

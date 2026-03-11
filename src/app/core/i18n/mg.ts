@@ -31,12 +31,16 @@ export const MG = {
     filterAll: 'Buses rehetra',
     filterCheapest: 'Mora indrindra',
     filterFastest: 'Haingana indrindra',
+    filterBus: 'Fiaramanidina lehibe',
+    filterMinibus16: 'Minibus 16 toerana',
+    filterMinibus10: 'VIP 10 toerana',
     available: (n: number) => `${n} buses azo`,
     fromPrice: 'Manomboka',
     perPerson: 'isan\'olona',
     seatsLeft: (n: number) => `${n} toerana misy`,
     chooseSeats: 'Fidio ny fitoerana',
     more: (n: number) => `+${n} hafa`,
+    noResult: 'Tsy misy fiara misy amin\'ity tsanganana ity.',
     rating: 'Kôta',
   },
 
@@ -57,6 +61,10 @@ export const MG = {
     total: 'Totalin\'ny',
     continueBtn: 'Hanohy',
     selectMore: (n: number) => `Fidio indray ${n} fitoerana`,
+    capacity: 'Fahamaroan\'ny toerana:',
+    places: 'fitoerana',
+    front: 'Aloha',
+    vipLabel: 'Minibus VIP — Fitoerana lehibe',
   },
 
   passengers: {

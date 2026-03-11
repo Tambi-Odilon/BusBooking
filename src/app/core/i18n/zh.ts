@@ -31,12 +31,16 @@ export const ZH = {
     filterAll: '所有巴士',
     filterCheapest: '最便宜',
     filterFastest: '最快速',
+    filterBus: '大型巴士',
+    filterMinibus16: '16座小巴',
+    filterMinibus10: 'VIP10座',
     available: (n: number) => `${n} 辆巴士可用`,
     fromPrice: '起价',
     perPerson: '每人',
     seatsLeft: (n: number) => `${n} 个座位可用`,
     chooseSeats: '选择座位',
     more: (n: number) => `+${n} 更多`,
+    noResult: '此筛选条件下暂无车辆。',
     rating: '评分',
   },
 
@@ -57,6 +61,10 @@ export const ZH = {
     total: '总计',
     continueBtn: '继续',
     selectMore: (n: number) => `还需选择 ${n} 个座位`,
+    capacity: '容量：',
+    places: '个座位',
+    front: '前部',
+    vipLabel: 'VIP 小巴 — 宽敞座椅',
   },
 
   passengers: {

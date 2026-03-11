@@ -31,12 +31,16 @@ export const EN = {
     filterAll: 'All buses',
     filterCheapest: 'Cheapest',
     filterFastest: 'Fastest',
+    filterBus: 'Coach Bus',
+    filterMinibus16: 'Minibus 16 seats',
+    filterMinibus10: 'VIP 10 seats',
     available: (n: number) => `${n} buses available`,
     fromPrice: 'From',
     perPerson: 'per person',
     seatsLeft: (n: number) => `${n} seats available`,
     chooseSeats: 'Choose seats',
     more: (n: number) => `+${n} more`,
+    noResult: 'No vehicle available for this filter.',
     rating: 'Rating',
   },
 
@@ -57,6 +61,10 @@ export const EN = {
     total: 'Total',
     continueBtn: 'Continue',
     selectMore: (n: number) => `Select ${n} more seat(s)`,
+    capacity: 'Capacity:',
+    places: 'seats',
+    front: 'Front',
+    vipLabel: 'VIP Minibus — Spacious seats',
   },
 
   passengers: {

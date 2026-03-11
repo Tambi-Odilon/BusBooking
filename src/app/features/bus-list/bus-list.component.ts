@@ -3,9 +3,10 @@ import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { BookingService } from '../../core/services/booking.service';
 import { I18nService } from '../../core/services/i18n.service';
-import { Bus, MOCK_BUSES } from '../../core/models/booking.models';
+import { Bus, VehicleLayout, MOCK_BUSES } from '../../core/models/booking.models';
 
-type FilterType = 'all' | 'cheapest' | 'fastest';
+type SortFilter  = 'all' | 'cheapest' | 'fastest';
+type TypeFilter  = 'all' | VehicleLayout;
 
 @Component({
   selector: 'app-bus-list',
@@ -20,33 +21,54 @@ export class BusListComponent implements OnInit {
   readonly i18n = inject(I18nService);
 
   readonly searchParams  = this.bookingService.searchParams;
-  readonly filter        = signal<FilterType>('all');
+  readonly sortFilter    = signal<SortFilter>('all');
+  readonly typeFilter    = signal<TypeFilter>('all');
   readonly filteredBuses = signal<Bus[]>([]);
 
-  get filters() {
+  get sortFilters(): { value: SortFilter; label: string }[] {
     const t = this.i18n.t().busList;
     return [
-      { value: 'all'      as FilterType, label: t.filterAll      },
-      { value: 'cheapest' as FilterType, label: t.filterCheapest },
-      { value: 'fastest'  as FilterType, label: t.filterFastest  },
+      { value: 'all',      label: t.filterAll      },
+      { value: 'cheapest', label: t.filterCheapest },
+      { value: 'fastest',  label: t.filterFastest  },
+    ];
+  }
+
+  get typeFilters(): { value: TypeFilter; label: string; emoji: string }[] {
+    const t = this.i18n.t().busList;
+    return [
+      { value: 'all',        label: t.filterAll,        emoji: '🚌🚐⭐' },
+      { value: 'bus',        label: t.filterBus,        emoji: '🚌' },
+      { value: 'minibus16',  label: t.filterMinibus16,  emoji: '🚐' },
+      { value: 'minibus10',  label: t.filterMinibus10,  emoji: '⭐' },
     ];
   }
 
   ngOnInit(): void {
     if (!this.searchParams()) { this.router.navigate(['/']); return; }
-    this.updateFilteredBuses();
+    this.applyFilters();
   }
 
-  setFilter(f: FilterType): void {
-    this.filter.set(f);
-    this.updateFilteredBuses();
-  }
+  setSortFilter(f: SortFilter): void { this.sortFilter.set(f); this.applyFilters(); }
+  setTypeFilter(f: TypeFilter): void { this.typeFilter.set(f); this.applyFilters(); }
 
   goBack(): void { this.router.navigate(['/']); }
 
   selectBus(bus: Bus): void {
     this.bookingService.setSelectedBus(bus);
     this.router.navigate(['/seats']);
+  }
+
+  getLayoutEmoji(layout: VehicleLayout): string {
+    return { bus: '🚌', minibus16: '🚐', minibus10: '⭐' }[layout];
+  }
+
+  getLayoutBadgeClass(layout: VehicleLayout): string {
+    return {
+      bus:       'bg-blue-50 text-blue-700 border-blue-200',
+      minibus16: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      minibus10: 'bg-violet-50 text-violet-700 border-violet-200',
+    }[layout];
   }
 
   getAmenityEmoji(amenity: string): string {
@@ -56,11 +78,18 @@ export class BusListComponent implements OnInit {
     return map[amenity] ?? '✓';
   }
 
-  private updateFilteredBuses(): void {
-    const buses = [...MOCK_BUSES];
-    if (this.filter() === 'cheapest') buses.sort((a, b) => a.price - b.price);
-    else if (this.filter() === 'fastest')
+  private applyFilters(): void {
+    let buses = [...MOCK_BUSES];
+
+    // Type filter
+    if (this.typeFilter() !== 'all')
+      buses = buses.filter(b => b.vehicleLayout === this.typeFilter());
+
+    // Sort
+    if (this.sortFilter() === 'cheapest') buses.sort((a, b) => a.price - b.price);
+    else if (this.sortFilter() === 'fastest')
       buses.sort((a, b) => this.parseDuration(a.duration) - this.parseDuration(b.duration));
+
     this.filteredBuses.set(buses);
   }
 
