@@ -29,6 +29,10 @@ export const routes: Routes = [
         path: 'confirmation',
         loadComponent: () => import('./features/confirmation/confirmation.component').then(m => m.ConfirmationComponent),
       },
+      {
+        path: 'profile',
+        loadComponent: () => import('./features/profile/profile.component').then(m => m.ProfileComponent),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

@@ -129,6 +129,12 @@
                    hover:border-blue-300 hover:text-blue-700 rounded-xl text-sm font-medium transition-colors">
       {{ i18n.t().confirmation.emailBtn }}
     </button>
+    @if (isLoggedIn()) {
+      <button (click)="viewMyBookings()"
+              class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
+        🎫 Mes réservations
+      </button>
+    }
     <button (click)="newBooking()"
             class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors text-sm">
       {{ i18n.t().confirmation.newBookingBtn }}

@@ -31,3 +31,37 @@ export type AuthError =
   | 'invalid_email'
   | 'missing_fields'
   | null;
+
+// ─── Historique des réservations ─────────────────────────────────────────────
+export interface SavedBooking {
+  id:          string;
+  userId:      string;
+  reference:   string;
+  createdAt:   string;
+  status:      'confirmed' | 'cancelled' | 'completed';
+  // Trajet
+  from:        string;
+  to:          string;
+  date:        string;
+  departure:   string;
+  arrival:     string;
+  duration:    string;
+  // Véhicule
+  busId:       string;
+  busName:     string;
+  busType:     string;
+  // Sièges & passagers
+  seats:       string[];
+  passengers:  SavedPassenger[];
+  // Paiement
+  totalAmount: number;
+  paymentMethod?: string;
+}
+
+export interface SavedPassenger {
+  firstName:  string;
+  lastName:   string;
+  age:        number;
+  gender:     string;
+  seatNumber: string;
+}

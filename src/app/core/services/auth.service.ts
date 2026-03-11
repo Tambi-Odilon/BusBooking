@@ -108,6 +108,16 @@ export class AuthService {
     this.currentUser.set(updated);
   }
 
+  // ── Change password ───────────────────────────────────────────────────────
+  async changePassword(currentPassword: string, newPassword: string): Promise<boolean> {
+    const user = this.currentUser();
+    if (!user) return false;
+    const stored = this.getUserPassword(user.id);
+    if (stored !== this.hashPassword(currentPassword)) return false;
+    this.saveUserPassword(user.id, this.hashPassword(newPassword));
+    return true;
+  }
+
   clearError(): void { this.authError.set(null); }
 
   // ── Error messages helper ─────────────────────────────────────────────────

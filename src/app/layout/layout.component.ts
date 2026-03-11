@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { RouterOutlet, RouterLink } from '@angular/router';
+import { RouterOutlet, RouterLink, Router } from '@angular/router';
 import { I18nService } from '../core/services/i18n.service';
 import { AuthService } from '../core/services/auth.service';
 import { LANG_META, Lang } from '../core/i18n/index';
@@ -15,6 +15,7 @@ import { AuthModalComponent } from '../features/auth/auth-modal.component';
 export class LayoutComponent {
   readonly i18n        = inject(I18nService);
   readonly authService = inject(AuthService);
+  private  router      = inject(Router);
   readonly langMeta    = LANG_META;
   readonly dropOpen    = signal(false);
   readonly showAuth    = signal(false);
@@ -32,7 +33,8 @@ export class LayoutComponent {
   toggleUserMenu(): void { this.userMenuOpen.update(v => !v); this.dropOpen.set(false); }
   closeUserMenu(): void  { this.userMenuOpen.set(false); }
 
-  logout(): void {
+  goToProfile(): void      { this.router.navigate(['/profile']); this.userMenuOpen.set(false); }
+  goToBookings(): void     { this.router.navigate(['/profile'], { queryParams: { tab: 'bookings' } }); this.userMenuOpen.set(false); }
     this.authService.logout();
     this.userMenuOpen.set(false);
   }

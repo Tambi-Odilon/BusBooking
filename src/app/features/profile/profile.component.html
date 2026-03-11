@@ -1,0 +1,430 @@
+<div class="max-w-5xl mx-auto space-y-6">
+
+  <!-- En-tête profil -->
+  <div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white">
+    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <!-- Avatar grand -->
+      <div class="w-20 h-20 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center
+                   text-3xl font-bold border-2 border-white/30 flex-shrink-0">
+        {{ getInitials() }}
+      </div>
+      <div class="flex-1 min-w-0">
+        <h1 class="text-2xl font-bold leading-tight">
+          {{ currentUser()?.firstName }} {{ currentUser()?.lastName }}
+        </h1>
+        <p class="text-blue-100 text-sm mt-0.5">{{ currentUser()?.email }}</p>
+        @if (currentUser()?.phone) {
+          <p class="text-blue-100 text-sm">{{ currentUser()?.phone }}</p>
+        }
+        <p class="text-blue-200 text-xs mt-1">
+          Membre depuis {{ formatDate(currentUser()?.createdAt ?? '') }}
+        </p>
+      </div>
+      <!-- Compteurs -->
+      <div class="flex gap-4 flex-shrink-0">
+        <div class="text-center bg-white/10 rounded-xl px-4 py-3">
+          <p class="text-2xl font-bold">{{ upcomingCount() }}</p>
+          <p class="text-xs text-blue-200">À venir</p>
+        </div>
+        <div class="text-center bg-white/10 rounded-xl px-4 py-3">
+          <p class="text-2xl font-bold">{{ myBookings().length }}</p>
+          <p class="text-xs text-blue-200">Total</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+    <div class="flex border-b border-slate-200">
+      <button (click)="setTab('profile')"
+              [class]="'flex-1 flex items-center justify-center gap-2 py-4 text-sm font-semibold transition-all border-b-2 ' +
+                (tab() === 'profile' ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        Mon Profil
+      </button>
+      <button (click)="setTab('bookings')"
+              [class]="'flex-1 flex items-center justify-center gap-2 py-4 text-sm font-semibold transition-all border-b-2 ' +
+                (tab() === 'bookings' ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 12h6"/><path d="M9 8h1"/><path d="M9 16h6"/>
+          <rect width="16" height="20" x="4" y="2" rx="2" ry="2"/>
+        </svg>
+        Mes Réservations
+        @if (upcomingCount() > 0) {
+          <span class="px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full font-bold">{{ upcomingCount() }}</span>
+        }
+      </button>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         TAB PROFIL
+         ════════════════════════════════════════ -->
+    @if (tab() === 'profile') {
+      <div class="p-6 space-y-8">
+
+        <!-- Section infos personnelles -->
+        <section>
+          <h2 class="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+            <span class="w-7 h-7 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-sm">👤</span>
+            Informations personnelles
+          </h2>
+
+          @if (saveSuccess()) {
+            <div class="mb-4 flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+              Profil mis à jour avec succès !
+            </div>
+          }
+
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Prénom <span class="text-red-500">*</span></label>
+              <input type="text" [(ngModel)]="firstName" placeholder="Jean"
+                     class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Nom <span class="text-red-500">*</span></label>
+              <input type="text" [(ngModel)]="lastName" placeholder="Dupont"
+                     class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
+              <input type="email" [(ngModel)]="email" disabled
+                     class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-100 text-sm text-slate-500 cursor-not-allowed" />
+              <p class="text-xs text-slate-400 mt-1">L'email ne peut pas être modifié</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Téléphone</label>
+              <input type="tel" [(ngModel)]="phone" placeholder="+261 34 XX XXX XX"
+                     class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Genre</label>
+              <select [(ngModel)]="gender"
+                      class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                <option value="">Sélectionner</option>
+                <option value="male">Masculin</option>
+                <option value="female">Féminin</option>
+                <option value="other">Autre</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Âge</label>
+              <input type="number" [(ngModel)]="age" min="1" max="120" placeholder="25"
+                     class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+          </div>
+
+          <div class="mt-5 flex gap-3">
+            <button (click)="saveProfile()" [disabled]="isSaving() || !firstName.trim() || !lastName.trim()"
+                    class="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200
+                           disabled:cursor-not-allowed text-white disabled:text-slate-400 font-semibold rounded-xl transition-all text-sm">
+              @if (isSaving()) {
+                <span class="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                Enregistrement...
+              } @else {
+                💾 Enregistrer les modifications
+              }
+            </button>
+          </div>
+        </section>
+
+        <!-- Séparateur -->
+        <div class="border-t border-slate-200"></div>
+
+        <!-- Section mot de passe -->
+        <section>
+          <h2 class="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+            <span class="w-7 h-7 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center text-sm">🔒</span>
+            Changer le mot de passe
+          </h2>
+
+          @if (passwordError) {
+            <div class="mb-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              {{ passwordError }}
+            </div>
+          }
+          @if (passwordSuccess) {
+            <div class="mb-4 flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+              Mot de passe mis à jour avec succès !
+            </div>
+          }
+
+          <div class="grid sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Mot de passe actuel</label>
+              <div class="relative">
+                <input [type]="showCurrentPwd ? 'text' : 'password'" [(ngModel)]="currentPassword"
+                       placeholder="••••••••"
+                       class="w-full h-11 pl-4 pr-10 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+                <button type="button" (click)="showCurrentPwd = !showCurrentPwd"
+                        class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    @if (!showCurrentPwd) {
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                    } @else {
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    }
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Nouveau mot de passe</label>
+              <div class="relative">
+                <input [type]="showNewPwd ? 'text' : 'password'" [(ngModel)]="newPassword"
+                       placeholder="Min. 6 caractères"
+                       class="w-full h-11 pl-4 pr-10 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+                <button type="button" (click)="showNewPwd = !showNewPwd"
+                        class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    @if (!showNewPwd) {
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                    } @else {
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    }
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Confirmer</label>
+              <input type="password" [(ngModel)]="confirmPassword" placeholder="Répéter"
+                     [class]="'w-full h-11 px-4 rounded-xl border bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ' +
+                       (confirmPassword && newPassword !== confirmPassword ? 'border-red-300' : 'border-slate-200')" />
+            </div>
+          </div>
+
+          <button (click)="changePassword()" [disabled]="isSaving() || !currentPassword || !newPassword || !confirmPassword"
+                  class="mt-4 flex items-center gap-2 px-6 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200
+                         disabled:cursor-not-allowed text-white disabled:text-slate-400 font-semibold rounded-xl transition-all text-sm">
+            🔐 Mettre à jour le mot de passe
+          </button>
+        </section>
+
+        <!-- Séparateur -->
+        <div class="border-t border-slate-200"></div>
+
+        <!-- Zone danger -->
+        <section>
+          <h2 class="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+            <span class="w-7 h-7 bg-red-100 text-red-600 rounded-lg flex items-center justify-center text-sm">⚠️</span>
+            Zone de danger
+          </h2>
+          <div class="p-4 border border-red-200 rounded-xl bg-red-50 flex items-center justify-between gap-4">
+            <div>
+              <p class="font-semibold text-red-900 text-sm">Se déconnecter</p>
+              <p class="text-xs text-red-700 mt-0.5">Vous serez redirigé vers la page d'accueil</p>
+            </div>
+            <button (click)="logout()"
+                    class="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white
+                           font-semibold rounded-xl transition-all text-sm flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              Déconnexion
+            </button>
+          </div>
+        </section>
+
+      </div>
+    }
+
+    <!-- ════════════════════════════════════════
+         TAB RÉSERVATIONS
+         ════════════════════════════════════════ -->
+    @if (tab() === 'bookings') {
+      <div class="p-6 space-y-4">
+
+        <!-- Filtres -->
+        <div class="flex flex-wrap gap-2">
+          @for (f of [{v:'all',l:'Toutes',c:myBookings().length}, {v:'upcoming',l:'À venir',c:upcomingCount()}, {v:'past',l:'Passées',c:pastCount()}]; track f.v) {
+            <button (click)="bookingFilter.set(f.v as any)"
+                    [class]="'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ' +
+                      (bookingFilter() === f.v ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300')">
+              {{ f.l }}
+              <span [class]="'text-xs px-1.5 py-0.5 rounded-full font-bold ' +
+                (bookingFilter() === f.v ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500')">
+                {{ f.c }}
+              </span>
+            </button>
+          }
+        </div>
+
+        <!-- Liste réservations -->
+        @if (filteredBookings.length === 0) {
+          <div class="text-center py-16 text-slate-400">
+            <p class="text-4xl mb-3">🎫</p>
+            <p class="font-medium text-slate-600">Aucune réservation trouvée</p>
+            <p class="text-sm mt-1">Vos futures réservations apparaîtront ici</p>
+            <button (click)="router.navigate(['/'])"
+                    class="mt-4 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all">
+              Réserver un trajet
+            </button>
+          </div>
+        }
+
+        @for (booking of filteredBookings; track booking.id) {
+          <div class="border border-slate-200 rounded-2xl overflow-hidden hover:border-blue-200 transition-all">
+
+            <!-- En-tête réservation (cliquable) -->
+            <button (click)="toggleBooking(booking.id)"
+                    class="w-full p-4 flex items-center gap-4 text-left hover:bg-slate-50 transition-colors">
+
+              <!-- Icône véhicule -->
+              <div class="w-12 h-12 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-center flex-shrink-0 text-xl">
+                🚌
+              </div>
+
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <span class="font-bold text-slate-900 text-sm">{{ booking.from }} → {{ booking.to }}</span>
+                  <span [class]="'text-xs px-2 py-0.5 rounded-full border font-medium ' + getStatusBadge(booking.status)">
+                    {{ getStatusLabel(booking.status) }}
+                  </span>
+                </div>
+                <p class="text-xs text-slate-600">
+                  {{ booking.busName }} · {{ booking.date }} · {{ booking.departure }} → {{ booking.arrival }}
+                </p>
+                <p class="text-xs text-slate-400 mt-0.5">Réf : <span class="font-mono font-semibold">{{ booking.reference }}</span></p>
+              </div>
+
+              <div class="text-right flex-shrink-0">
+                <p class="font-bold text-slate-900 text-sm">{{ booking.totalAmount | number }} Ar</p>
+                <p class="text-xs text-slate-400">{{ booking.seats.length }} siège(s)</p>
+              </div>
+
+              <!-- Chevron -->
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   [class]="'flex-shrink-0 text-slate-400 transition-transform ' + (expandedBooking() === booking.id ? 'rotate-180' : '')">
+                <path d="m6 9 6 6 6-6"/>
+              </svg>
+            </button>
+
+            <!-- Détail réservation (accordéon) -->
+            @if (expandedBooking() === booking.id) {
+              <div class="border-t border-slate-100 bg-slate-50 p-5 space-y-5">
+
+                <!-- Infos trajet -->
+                <div class="grid sm:grid-cols-3 gap-4">
+                  <div class="bg-white rounded-xl border border-slate-200 p-4">
+                    <p class="text-xs text-slate-500 mb-1">🚌 Véhicule</p>
+                    <p class="font-semibold text-sm text-slate-900">{{ booking.busName }}</p>
+                    <p class="text-xs text-slate-500">{{ booking.busType }}</p>
+                  </div>
+                  <div class="bg-white rounded-xl border border-slate-200 p-4">
+                    <p class="text-xs text-slate-500 mb-1">📅 Date & Horaire</p>
+                    <p class="font-semibold text-sm text-slate-900">{{ booking.date }}</p>
+                    <p class="text-xs text-slate-600">{{ booking.departure }} → {{ booking.arrival }} ({{ booking.duration }})</p>
+                  </div>
+                  <div class="bg-white rounded-xl border border-slate-200 p-4">
+                    <p class="text-xs text-slate-500 mb-1">💺 Sièges</p>
+                    <div class="flex flex-wrap gap-1 mt-1">
+                      @for (seat of booking.seats; track seat) {
+                        <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium">{{ seat }}</span>
+                      }
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Passagers -->
+                <div>
+                  <p class="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">Passagers</p>
+                  <div class="grid sm:grid-cols-2 gap-2">
+                    @for (p of booking.passengers; track p.seatNumber) {
+                      <div class="bg-white rounded-xl border border-slate-200 p-3 flex items-center gap-3">
+                        <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-bold text-slate-600 flex-shrink-0">
+                          {{ p.firstName[0] }}{{ p.lastName[0] }}
+                        </div>
+                        <div>
+                          <p class="font-semibold text-sm text-slate-900">{{ p.firstName }} {{ p.lastName }}</p>
+                          <p class="text-xs text-slate-500">
+                            Siège {{ p.seatNumber }}
+                            @if (p.age) { · {{ p.age }} ans }
+                            @if (p.gender) { · {{ p.gender === 'male' ? '♂' : p.gender === 'female' ? '♀' : '⚧' }} }
+                          </p>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+
+                <!-- Paiement + réservé le -->
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div class="text-sm text-slate-600">
+                    Réservé le <span class="font-medium text-slate-900">{{ formatDateTime(booking.createdAt) }}</span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <div class="text-right">
+                      <p class="text-xs text-slate-500">Total payé</p>
+                      <p class="font-bold text-lg text-blue-600">{{ booking.totalAmount | number }} Ar</p>
+                    </div>
+                    @if (booking.status === 'confirmed') {
+                      <button (click)="askCancel(booking.id)"
+                              class="px-4 py-2 border-2 border-red-300 text-red-600 hover:bg-red-50 font-semibold rounded-xl text-sm transition-all">
+                        Annuler
+                      </button>
+                    }
+                  </div>
+                </div>
+
+              </div>
+            }
+          </div>
+        }
+
+      </div>
+    }
+  </div>
+
+  <!-- ── Modale confirmation annulation ──────────────────────────────────── -->
+  @if (confirmCancel()) {
+    <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+         (click)="dismissCancel()">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" (click)="$event.stopPropagation()">
+        <div class="text-center mb-5">
+          <div class="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-3">⚠️</div>
+          <h3 class="font-bold text-slate-900 text-lg">Annuler la réservation</h3>
+          <p class="text-sm text-slate-600 mt-1">Cette action est irréversible. Voulez-vous vraiment annuler cette réservation ?</p>
+        </div>
+        <div class="flex gap-3">
+          <button (click)="dismissCancel()"
+                  class="flex-1 py-2.5 border border-slate-300 text-slate-700 font-semibold rounded-xl text-sm hover:bg-slate-50 transition-all">
+            Garder
+          </button>
+          <button (click)="confirmCancelBooking()"
+                  class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl text-sm transition-all">
+            Annuler quand même
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+</div>
