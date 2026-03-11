@@ -13,12 +13,12 @@ import { AuthModalComponent } from '../features/auth/auth-modal.component';
   styleUrl: './layout.component.scss',
 })
 export class LayoutComponent {
-  readonly i18n        = inject(I18nService);
-  readonly authService = inject(AuthService);
-  private  router      = inject(Router);
-  readonly langMeta    = LANG_META;
-  readonly dropOpen    = signal(false);
-  readonly showAuth    = signal(false);
+  readonly i18n         = inject(I18nService);
+  readonly authService  = inject(AuthService);
+  private  router       = inject(Router);
+  readonly langMeta     = LANG_META;
+  readonly dropOpen     = signal(false);
+  readonly showAuth     = signal(false);
   readonly userMenuOpen = signal(false);
 
   setLang(code: Lang): void {
@@ -28,13 +28,15 @@ export class LayoutComponent {
 
   toggleDrop(): void     { this.dropOpen.update(v => !v); this.userMenuOpen.set(false); }
   closeDrop(): void      { this.dropOpen.set(false); }
-  openAuth(): void       { this.showAuth.set(true); this.userMenuOpen.set(false); }
+  openAuth(): void       { this.showAuth.set(true);  this.userMenuOpen.set(false); }
   closeAuth(): void      { this.showAuth.set(false); }
   toggleUserMenu(): void { this.userMenuOpen.update(v => !v); this.dropOpen.set(false); }
   closeUserMenu(): void  { this.userMenuOpen.set(false); }
 
-  goToProfile(): void      { this.router.navigate(['/profile']); this.userMenuOpen.set(false); }
-  goToBookings(): void     { this.router.navigate(['/profile'], { queryParams: { tab: 'bookings' } }); this.userMenuOpen.set(false); }
+  goToProfile(): void  { this.router.navigate(['/profile']); this.userMenuOpen.set(false); }
+  goToBookings(): void { this.router.navigate(['/profile'], { queryParams: { tab: 'bookings' } }); this.userMenuOpen.set(false); }
+
+  logout(): void {
     this.authService.logout();
     this.userMenuOpen.set(false);
   }

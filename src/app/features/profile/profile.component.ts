@@ -117,6 +117,10 @@ export class ProfileComponent implements OnInit {
     );
   }
 
+  setBookingFilter(v: string): void {
+    this.bookingFilter.set(v as 'all' | 'upcoming' | 'past');
+  }
+
   toggleBooking(id: string): void {
     this.expandedBooking.update(cur => cur === id ? null : id);
   }
