@@ -18,6 +18,31 @@
     <p class="text-sm text-slate-600">{{ i18n.t().payment.step }}</p>
   </div>
 
+  <!-- ── Bandeau verrou siège ── -->
+  @if (remainingLabel()) {
+    <div [class]="'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ' +
+                  (isExpiringSoon()
+                    ? 'bg-red-50 border border-red-300 text-red-700'
+                    : 'bg-amber-50 border border-amber-300 text-amber-800')">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+           [class]="isExpiringSoon() ? 'text-red-500' : 'text-amber-500'">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12 6 12 12 16 14"/>
+      </svg>
+      <span class="flex-1">
+        {{ i18n.t().seats.lockTimer }}
+        <span [class]="'font-bold tabular-nums ml-1 ' + (isExpiringSoon() ? 'text-red-700' : 'text-amber-900')">
+          {{ remainingLabel() }}
+        </span>
+        — {{ i18n.t().seats.legendPendingShort }}
+      </span>
+      @if (isExpiringSoon()) {
+        <span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold animate-pulse">⚠️</span>
+      }
+    </div>
+  }
+
   <div class="grid lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2 space-y-4">
 

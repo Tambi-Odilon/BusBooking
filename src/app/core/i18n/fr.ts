@@ -61,6 +61,11 @@ export const FR = {
     places: 'places',
     front: 'Avant',
     vipLabel: 'Minibus VIP — Sièges spacieux',
+    legendPending: 'En cours de réservation',
+    legendPendingShort: 'Réservé temporairement',
+    lockTimer: 'Votre réservation expire dans',
+    lockExpired: 'Réservation expirée',
+    lockReleased: 'Sièges libérés',
   },
 
 

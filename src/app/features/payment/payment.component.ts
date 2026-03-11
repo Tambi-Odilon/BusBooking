@@ -1,9 +1,10 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { BookingService } from '../../core/services/booking.service';
 import { I18nService } from '../../core/services/i18n.service';
+import { SeatLockService } from '../../core/services/seat-lock.service';
 import { MVolaService, MVolaPaymentStatus, MVOLA_CONFIG } from '../../core/services/mvola.service';
 import { OrangeMoneyService, OmPaymentStatus } from '../../core/services/orange-money.service';
 import { AirtelMoneyService, AirtelPaymentStatus } from '../../core/services/airtel-money.service';
@@ -18,8 +19,9 @@ export type MobileProvider = 'mvola' | 'orangemoney' | 'airtelmoney';
   templateUrl: './payment.component.html',
   styleUrl: './payment.component.scss',
 })
-export class PaymentComponent implements OnInit {
+export class PaymentComponent implements OnInit, OnDestroy {
   private bookingService = inject(BookingService);
+  private seatLockSvc    = inject(SeatLockService);
   private mvolaService   = inject(MVolaService);
   private omService      = inject(OrangeMoneyService);
   private airtelService  = inject(AirtelMoneyService);
@@ -34,6 +36,21 @@ export class PaymentComponent implements OnInit {
   readonly paymentMethod  = signal<PaymentMethod>('card');
   readonly mobileProvider = signal<MobileProvider>('mvola');
   readonly isProcessing   = signal(false);
+
+  // ── Compte à rebours verrou siège ────────────────────────────────────────
+  readonly remainingSec = signal<number | null>(null);
+  readonly remainingLabel = computed(() => {
+    const s = this.remainingSec();
+    if (s === null || s <= 0) return null;
+    const min = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${min}:${sec.toString().padStart(2, '0')}`;
+  });
+  readonly isExpiringSoon = computed(() => {
+    const s = this.remainingSec();
+    return s !== null && s <= 120 && s > 0;
+  });
+  private countdownTimer: ReturnType<typeof setInterval> | null = null;
 
   // ── MVola state ─────────────────────────────────────────────────────────
   readonly mvolaStatus    = this.mvolaService.paymentStatus;
@@ -171,6 +188,20 @@ export class PaymentComponent implements OnInit {
   ngOnInit(): void {
     if (!this.selectedBus() || !this.selectedSeats().length || !this.passengers().length)
       this.router.navigate(['/']);
+    // Démarre le countdown du verrou
+    const p = this.searchParams();
+    const b = this.selectedBus();
+    if (p && b) {
+      const busKey = this.seatLockSvc.buildKey(b.id, p.from, p.to, p.date);
+      this.countdownTimer = setInterval(() => {
+        const s = this.seatLockSvc.remainingSeconds(busKey);
+        this.remainingSec.set(s);
+      }, 1000);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.countdownTimer) clearInterval(this.countdownTimer);
   }
 
   // ── Form helpers ─────────────────────────────────────────────────────────
@@ -226,7 +257,11 @@ export class PaymentComponent implements OnInit {
     return '0XX XX XXX XX';
   }
 
-  goBack(): void { this.router.navigate(['/passengers']); }
+  goBack(): void {
+    // On libère les verrous si l'utilisateur abandonne le paiement
+    this.seatLockSvc.releaseAll();
+    this.router.navigate(['/passengers']);
+  }
 
   onProviderChange(provider: MobileProvider): void {
     this.mobileProvider.set(provider);

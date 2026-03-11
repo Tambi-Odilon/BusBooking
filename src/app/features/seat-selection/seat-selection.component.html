@@ -54,12 +54,51 @@
             <span class="text-slate-600">{{ i18n.t().seats.legendBooked }}</span>
           </div>
           <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-amber-100 border-2 border-amber-400 animate-pulse"></div>
+            <span class="text-slate-600">{{ i18n.t().seats.legendPending }}</span>
+          </div>
+          <div class="flex items-center gap-2">
             <div class="w-8 h-8 rounded-lg bg-amber-100 border-2 border-amber-300 flex items-center justify-center">
               <span class="text-xs">🚗</span>
             </div>
             <span class="text-slate-600">{{ i18n.t().seats.driver }}</span>
           </div>
         </div>
+
+        <!-- ── Bandeau compte à rebours ── -->
+        @if (remainingLabel() && selectedSeats().length > 0) {
+          <div [class]="'flex items-center gap-3 px-4 py-3 rounded-xl mb-4 text-sm font-medium transition-all ' +
+                        (isExpiringSoon()
+                          ? 'bg-red-50 border border-red-300 text-red-700'
+                          : 'bg-amber-50 border border-amber-300 text-amber-800')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 [class]="isExpiringSoon() ? 'text-red-500 animate-spin' : 'text-amber-500'">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <span class="flex-1">
+              {{ i18n.t().seats.lockTimer }}
+              <span [class]="'font-bold ml-1 tabular-nums ' + (isExpiringSoon() ? 'text-red-700' : 'text-amber-900')">
+                {{ remainingLabel() }}
+              </span>
+            </span>
+            @if (isExpiringSoon()) {
+              <span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold animate-pulse">⚠️</span>
+            }
+          </div>
+        }
+
+        <!-- ── Message expiration ── -->
+        @if (lockExpired()) {
+          <div class="flex items-center gap-3 px-4 py-3 rounded-xl mb-4 bg-red-50 border border-red-300 text-red-700 text-sm font-medium">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            {{ i18n.t().seats.lockExpired }}
+          </div>
+        }
 
         <!-- ═══════════════════════════════════════════════════
              GRAND BUS (bus) — 12 rangées × 4 places

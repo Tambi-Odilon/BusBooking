@@ -5,6 +5,7 @@ import { BookingService } from '../../core/services/booking.service';
 import { AuthService } from '../../core/services/auth.service';
 import { UserService } from '../../core/services/user.service';
 import { I18nService } from '../../core/services/i18n.service';
+import { SeatLockService } from '../../core/services/seat-lock.service';
 
 @Component({
   selector: 'app-confirmation',
@@ -17,6 +18,7 @@ export class ConfirmationComponent implements OnInit {
   private bookingService = inject(BookingService);
   private authService    = inject(AuthService);
   private userService    = inject(UserService);
+  private seatLockSvc    = inject(SeatLockService);
   private router         = inject(Router);
   readonly i18n          = inject(I18nService);
 
@@ -37,6 +39,8 @@ export class ConfirmationComponent implements OnInit {
     if (!this.selectedBus() || !this.bookingReference()) {
       this.router.navigate(['/']); return;
     }
+    // Libère tous les verrous de cette session — réservation confirmée
+    this.seatLockSvc.releaseAll();
     // Sauvegarde automatique si connecté
     if (this.authService.isLoggedIn()) {
       this.userService.saveBooking({

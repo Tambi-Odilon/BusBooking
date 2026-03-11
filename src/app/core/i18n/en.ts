@@ -61,6 +61,11 @@ export const EN = {
     places: 'seats',
     front: 'Front',
     vipLabel: 'VIP Minibus — Spacious seats',
+    legendPending: 'Being booked',
+    legendPendingShort: 'Temporarily reserved',
+    lockTimer: 'Your reservation expires in',
+    lockExpired: 'Reservation expired',
+    lockReleased: 'Seats released',
   },
 
 

@@ -61,6 +61,11 @@ export const MG = {
     places: 'fitoerana',
     front: 'Aloha',
     vipLabel: 'Minibus VIP — Fitoerana lehibe',
+    legendPending: 'Amin'ny fandraharahana',
+    legendPendingShort: 'Voatokana vonjimaika',
+    lockTimer: 'Hifarana ny fandraharahanao ao anatin'ny',
+    lockExpired: 'Voafarana ny fandraharahana',
+    lockReleased: 'Voasotro ny fitoerana',
   },
 
 

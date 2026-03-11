@@ -61,6 +61,11 @@ export const ZH = {
     places: '个座位',
     front: '前部',
     vipLabel: 'VIP 小巴 — 宽敞座椅',
+    legendPending: '预订进行中',
+    legendPendingShort: '临时保留',
+    lockTimer: '您的预订将在以下时间后过期',
+    lockExpired: '预订已过期',
+    lockReleased: '座位已释放',
   },
 
 
