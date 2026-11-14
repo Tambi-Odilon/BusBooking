@@ -1,0 +1,202 @@
+<div class="a-fade">
+  <div style="margin-bottom:18px">
+    <h1 style="font-size:18px;font-weight:700;color:var(--a-tx1);margin:0">Société et réglages</h1>
+    <div class="a-mono" style="font-size:11px;color:var(--a-tx3);margin-top:3px">Tout ce que l'assistant de première configuration a demandé reste modifiable ici</div>
+  </div>
+
+  @if (loading()) { <div class="a-card" style="padding:28px;text-align:center;color:var(--a-tx3);font-size:12px" role="status">Chargement…</div> }
+  @else if (loadError()) { <div class="a-card" style="padding:28px;text-align:center;color:var(--a-red);font-size:12px" role="alert">{{ loadError() }} <button class="a-btn ghost sm" (click)="load()">Réessayer</button></div> }
+  @else {
+    <div role="tablist" aria-label="Rubriques" style="display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--a-border);margin-bottom:18px;scrollbar-width:thin">
+      @for (t of tabs; track t.id) {
+        <button role="tab" [attr.aria-selected]="tab() === t.id" class="a-btn ghost sm" style="border-radius:8px 8px 0 0;padding:9px 14px;border-bottom:2px solid;white-space:nowrap;flex:none"
+                [style.border-bottom-color]="tab() === t.id ? 'var(--a-cyan)' : 'transparent'" [style.color]="tab() === t.id ? 'var(--a-cyan)' : 'var(--a-tx3)'" (click)="select(t.id)">{{ t.label }}</button>
+      }
+    </div>
+
+    @if (!canEdit()) {
+      <div class="a-card" style="padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--a-amber)" role="status">Lecture seule : votre rôle ne permet pas de modifier les réglages.</div>
+    }
+
+    <!-- ── Groupes de paramètres (mêmes formulaires que l'assistant) ── -->
+    @if (group(); as g) {
+      <div class="a-card" style="padding:22px">
+        <p style="font-size:12px;color:var(--a-tx3);margin:0 0 18px">{{ meta[g].intro }}</p>
+        <app-settings-form [group]="g" [model]="model[g]" [readonly]="!canEdit()" [uploader]="uploader" [roles]="roleChoices()"
+                           [decimals]="cfg.locale().currencyDecimals" [currencySymbol]="cfg.locale().currencySymbol" (changed)="onChange()" />
+
+        @if (g === 'notifications') {
+          <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--a-border);display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div>
+              <label class="a-form-label" for="cs-smtp">Mot de passe SMTP 🔒</label>
+              <div style="font-size:11px;color:var(--a-tx3);margin-bottom:6px">{{ hint('smtp.password') ? 'Enregistré : ' + hint('smtp.password') : 'Aucun mot de passe enregistré' }}</div>
+              <div style="display:flex;gap:6px">
+                <input id="cs-smtp" class="a-input" type="password" autocomplete="new-password" placeholder="Nouveau mot de passe" [(ngModel)]="secretInput['smtp.password']" [disabled]="!canEdit()" />
+                <button class="a-btn ghost sm" [disabled]="!canEdit() || !secretInput['smtp.password']" (click)="saveSecret('smtp.password')">Remplacer</button>
+              </div>
+            </div>
+            <div>
+              <label class="a-form-label" for="cs-sms">Clé API SMS 🔒</label>
+              <div style="font-size:11px;color:var(--a-tx3);margin-bottom:6px">{{ hint('sms.apiKey') ? 'Enregistrée : ' + hint('sms.apiKey') : 'Aucune clé enregistrée' }}</div>
+              <div style="display:flex;gap:6px">
+                <input id="cs-sms" class="a-input" type="password" autocomplete="new-password" placeholder="Nouvelle clé" [(ngModel)]="secretInput['sms.apiKey']" [disabled]="!canEdit()" />
+                <button class="a-btn ghost sm" [disabled]="!canEdit() || !secretInput['sms.apiKey']" (click)="saveSecret('sms.apiKey')">Remplacer</button>
+              </div>
+            </div>
+            <div style="grid-column:1 / -1">
+              <label class="a-form-label" for="cs-test">Envoyer un e-mail de test</label>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <input id="cs-test" class="a-input" type="email" style="flex:1 1 220px" placeholder="vous@exemple.com" [(ngModel)]="testTo" />
+                <button class="a-btn ghost sm" [disabled]="!canEdit() || testState().status === 'sending'" (click)="testEmail()">{{ testState().status === 'sending' ? 'Envoi…' : 'Tester avec les réglages affichés' }}</button>
+              </div>
+              @if (testState().message) { <div role="status" style="font-size:12px;margin-top:8px" [style.color]="testState().status === 'ok' ? 'var(--a-green)' : 'var(--a-red)'">{{ testState().message }}</div> }
+            </div>
+          </div>
+        }
+
+        @if (canEdit()) {
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:22px;padding-top:16px;border-top:1px solid var(--a-border);flex-wrap:wrap;align-items:center">
+            @if (dirty()) { <span style="font-size:11px;color:var(--a-amber);margin-right:auto">Modifications non enregistrées</span> }
+            <button class="a-btn ghost sm" [disabled]="!dirty() || saving()" (click)="cancel()">Annuler</button>
+            <button class="a-btn primary sm" [disabled]="!dirty() || saving()" (click)="save()">{{ saving() ? 'Enregistrement…' : 'Enregistrer' }}</button>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- ── Paiements ── -->
+    @if (tab() === 'payments') {
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="a-card" style="padding:12px 16px;font-size:12px;color:var(--a-tx2);line-height:1.6">
+          En mode <strong>test sans clés</strong>, les paiements sont simulés : aucun argent ne circule. Avec des clés de test, ils passent par le bac à sable de l'opérateur.
+          Le mode <strong>production</strong> exige toutes les clés. Les clés sont chiffrées sur le serveur et ne sont jamais réaffichées.
+        </div>
+        @for (m of methods(); track m.code) {
+          <div class="a-card" style="padding:18px 20px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:700;color:var(--a-tx1)">
+                <input type="checkbox" [(ngModel)]="m.enabled" [disabled]="!canEdit()" style="width:18px;height:18px;accent-color:var(--a-cyan)" /> {{ m.name }}
+              </label>
+              <span class="a-mono" style="font-size:10px;padding:2px 8px;border-radius:5px;font-weight:700"
+                    [style.color]="!m.enabled ? 'var(--a-tx3)' : m.kind === 'cash' ? 'var(--a-green)' : m.mode === 'live' ? 'var(--a-green)' : configured(m) ? 'var(--a-amber)' : 'var(--a-cyan)'" style="border:1px solid currentColor">
+                {{ !m.enabled ? 'DÉSACTIVÉ' : m.kind === 'cash' ? 'GUICHET' : m.mode === 'live' ? 'PRODUCTION' : configured(m) ? 'TEST (BAC À SABLE)' : 'SIMULÉ' }}
+              </span>
+            </div>
+            @if (m.kind !== 'cash') {
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div>
+                  <label class="a-form-label" [for]="'pm-mode-' + m.code">Mode</label>
+                  <select class="a-select" style="width:100%" [id]="'pm-mode-' + m.code" [(ngModel)]="m.mode" [disabled]="!canEdit()">
+                    <option value="test">Test</option><option value="live">Production</option>
+                  </select>
+                </div>
+                @for (k of publicKeys(m); track k) {
+                  <div>
+                    <label class="a-form-label" [for]="'pm-' + m.code + k">{{ publicLabels[k] || k }}</label>
+                    <input class="a-input" [id]="'pm-' + m.code + k" [(ngModel)]="m.publicConfig[k]" [disabled]="!canEdit()" />
+                  </div>
+                }
+                @for (f of m.secretFields; track f) {
+                  <div>
+                    <label class="a-form-label" [for]="'ps-' + m.code + f">{{ secretLabels[f] || f }} 🔒</label>
+                    <div style="font-size:10px;color:var(--a-tx3);margin-bottom:4px">{{ hint(m.code + '.' + f) ? 'Enregistrée : ' + hint(m.code + '.' + f) : 'Non renseignée' }}</div>
+                    <div style="display:flex;gap:6px">
+                      <input class="a-input" type="password" autocomplete="new-password" [id]="'ps-' + m.code + f" placeholder="Nouvelle valeur" [(ngModel)]="secretInput[m.code + '.' + f]" [disabled]="!canEdit()" />
+                      <button class="a-btn ghost sm" [disabled]="!canEdit() || !secretInput[m.code + '.' + f]" (click)="saveSecret(m.code + '.' + f)">Remplacer</button>
+                      @if (hint(m.code + '.' + f) && canEdit()) { <button class="a-btn ghost sm" style="color:var(--a-red)" (click)="clearSecret(m.code + '.' + f)" [attr.aria-label]="'Effacer ' + (secretLabels[f] || f)">Effacer</button> }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+            @if (canEdit()) { <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="a-btn primary sm" (click)="saveMethod(m)">Enregistrer {{ m.name }}</button></div> }
+          </div>
+        }
+      </div>
+    }
+
+    <!-- ── Modèles d'e-mails ── -->
+    @if (tab() === 'templates') {
+      <div class="a-card" style="padding:22px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+          <div>
+            <label class="a-form-label" for="tp-code">Modèle</label>
+            <select id="tp-code" class="a-select" style="width:100%" [ngModel]="tplCode()" (ngModelChange)="tplCode.set($event); pickTemplate()">
+              @for (t of templates(); track t.code) { <option [value]="t.code">{{ templateLabels[t.code] || t.code }}</option> }
+            </select>
+          </div>
+          <div>
+            <label class="a-form-label" for="tp-lang">Langue</label>
+            <select id="tp-lang" class="a-select" style="width:100%" [ngModel]="tplLang()" (ngModelChange)="tplLang.set($event); pickTemplate()">
+              @for (l of langs(); track l) { <option [value]="l">{{ langLabel(l) }}</option> }
+            </select>
+          </div>
+        </div>
+        <div style="font-size:11px;margin-bottom:12px" [style.color]="tplCustom() ? 'var(--a-amber)' : 'var(--a-tx3)'">{{ tplCustom() ? 'Modèle personnalisé pour cette langue.' : 'Modèle fourni par défaut (non modifié).' }}</div>
+
+        <label class="a-form-label" for="tp-subject">Objet</label>
+        <input id="tp-subject" class="a-input" style="margin-bottom:12px" [(ngModel)]="tpl.subject" [disabled]="!canEdit()" />
+        <label class="a-form-label" for="tp-body">Contenu (HTML simple)</label>
+        <textarea id="tp-body" class="a-input" rows="10" style="font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.6;margin-bottom:8px" [(ngModel)]="tpl.bodyHtml" [disabled]="!canEdit()"></textarea>
+        <div style="font-size:11px;color:var(--a-tx3);margin-bottom:6px">Variables disponibles (cliquez pour insérer à la fin du contenu) :</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+          @for (v of current()?.variables || []; track v) {
+            <button type="button" class="a-btn ghost sm a-mono" style="font-size:10px;padding:3px 8px;min-height:0" [disabled]="!canEdit()" (click)="insertVar(v)">{{ '{' + '{' + v + '}' + '}' }}</button>
+          }
+        </div>
+        <label class="a-form-label" for="tp-sms">Version SMS (160 caractères conseillés)</label>
+        <textarea id="tp-sms" class="a-input" rows="2" maxlength="400" [(ngModel)]="tpl.bodyText" [disabled]="!canEdit()"></textarea>
+        <div style="font-size:10px;color:var(--a-tx3);margin-top:6px">L'en-tête (logo, couleur) et le pied de page de l'e-mail sont ajoutés automatiquement. Les scripts et le contenu dangereux sont retirés à l'enregistrement.</div>
+
+        @if (canEdit()) {
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap">
+            @if (tplCustom()) { <button class="a-btn ghost sm" (click)="resetTemplate()">Revenir au modèle par défaut</button> }
+            <button class="a-btn primary sm" (click)="saveTemplate()">Enregistrer et prévisualiser</button>
+          </div>
+        }
+        @if (tplPreview(); as p) {
+          <div style="margin-top:18px;border:1px solid var(--a-border);border-radius:10px;overflow:hidden">
+            <div style="padding:8px 12px;background:var(--a-bg3);font-size:12px;color:var(--a-tx2)">Aperçu · Objet : <strong style="color:var(--a-tx1)">{{ p.subject }}</strong></div>
+            <iframe title="Aperçu de l'e-mail" sandbox="" [srcdoc]="p.html" style="width:100%;height:420px;border:0;background:#fff"></iframe>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- ── Textes et langues ── -->
+    @if (tab() === 'texts') {
+      <div class="a-card" style="padding:22px">
+        <p style="font-size:12px;color:var(--a-tx3);margin:0 0 14px;line-height:1.6">
+          Modifiez un texte du site des voyageurs, ou traduisez une langue que vous avez ajoutée (Régionalisation → Langues).
+          Laissez un champ vide pour garder le texte d'origine.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+          <select class="a-select" aria-label="Langue" [ngModel]="textLang()" (ngModelChange)="textLang.set($event); loadTexts()">
+            @for (l of langs(); track l) { <option [value]="l">{{ langLabel(l) }}</option> }
+          </select>
+          <input class="a-input" style="flex:1 1 220px" placeholder="Rechercher un texte…" aria-label="Rechercher un texte" [ngModel]="textSearch()" (ngModelChange)="textSearch.set($event)" />
+        </div>
+        @if (isCustomLang()) {
+          <div style="font-size:12px;color:var(--a-amber);margin-bottom:12px">Langue ajoutée : {{ translatedCount() }} texte(s) traduit(s) sur {{ baseTexts().length }}. Les textes non traduits s'affichent dans la langue de base.</div>
+        }
+        @for (t of shownTexts().rows; track t.key) {
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:8px 0;border-top:1px solid var(--a-border);align-items:start">
+            <div style="min-width:0">
+              <div class="a-mono" style="font-size:9px;color:var(--a-tx3)">{{ t.key }}</div>
+              <div style="font-size:12px;color:var(--a-tx2);overflow-wrap:anywhere">{{ t.base }}</div>
+            </div>
+            <input class="a-input" [attr.aria-label]="'Texte personnalisé pour ' + t.key" [placeholder]="isCustomLang() ? 'Traduction' : 'Texte personnalisé'" [ngModel]="textValue(t.key)" (ngModelChange)="setText(t.key, $event)" [disabled]="!canEdit()" />
+          </div>
+        }
+        @if (shownTexts().total > shownTexts().rows.length) { <div style="font-size:11px;color:var(--a-tx3);margin-top:10px">{{ shownTexts().rows.length }} textes affichés sur {{ shownTexts().total }}. Affinez la recherche pour voir les autres.</div> }
+        @if (!shownTexts().total) { <div style="font-size:12px;color:var(--a-tx3);padding:16px 0">Aucun texte ne correspond.</div> }
+        @if (canEdit()) {
+          <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:16px">
+            @if (editCount()) { <span style="font-size:11px;color:var(--a-amber)">{{ editCount() }} modification(s) à enregistrer</span> }
+            <button class="a-btn primary sm" [disabled]="!editCount()" (click)="saveTexts()">Enregistrer les textes</button>
+          </div>
+        }
+      </div>
+    }
+  }
+</div>

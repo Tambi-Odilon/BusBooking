@@ -1,0 +1,59 @@
+$sw: 220px; $swc: 60px;
+
+.adm-sidebar {
+  display:flex;flex-direction:column;background:var(--a-bg1);border-right:1px solid var(--a-border);
+  transition:width .22s cubic-bezier(.4,0,.2,1);overflow:hidden;flex-shrink:0;position:relative;z-index:50;
+  &.open{width:$sw}&.collapsed{width:$swc}
+}
+.adm-logo{display:flex;align-items:center;gap:10px;padding:18px 14px;border-bottom:1px solid var(--a-border);min-height:64px;flex-shrink:0}
+.adm-logo-mark{width:32px;height:32px;background:linear-gradient(135deg,var(--a-cyan),var(--a-blue));border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;color:#fff;flex-shrink:0;box-shadow:0 0 16px rgba(6,182,212,.3)}
+.adm-logo-text{display:flex;flex-direction:column;overflow:hidden}
+.adm-brand{font-size:13px;font-weight:700;color:var(--a-tx1);letter-spacing:-.2px;white-space:nowrap}
+.adm-sub{font-size:9px;font-weight:500;color:var(--a-tx3);text-transform:uppercase;letter-spacing:1.5px;white-space:nowrap;font-family:'IBM Plex Mono',monospace}
+.adm-nav{display:flex;flex-direction:column;gap:2px;padding:10px 8px;flex:1;overflow-y:auto;overflow-x:hidden;&::-webkit-scrollbar{display:none}}
+.adm-nav-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;cursor:pointer;color:var(--a-tx2);border:1px solid transparent;transition:all .15s;white-space:nowrap;text-decoration:none;position:relative;user-select:none;
+  &:hover{background:var(--a-bg3);color:var(--a-tx1);border-color:var(--a-border)}
+  &.active{background:rgba(6,182,212,.1);color:var(--a-cyan2);border-color:rgba(6,182,212,.25)}
+}
+.adm-nav-icon{display:flex;align-items:center;flex-shrink:0;width:16px;height:16px}
+.adm-nav-label{font-size:12.5px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis}
+.adm-badge-pill{background:var(--a-cyan);color:#000;font-size:9px;font-weight:700;padding:1px 5px;border-radius:999px;min-width:16px;text-align:center;font-family:'IBM Plex Mono',monospace;flex-shrink:0}
+.adm-badge-dot{position:absolute;top:6px;right:6px;width:6px;height:6px;background:var(--a-cyan);border-radius:50%;border:1px solid var(--a-bg1)}
+.adm-user{display:flex;align-items:center;gap:9px;padding:12px 10px;border-top:1px solid var(--a-border);flex-shrink:0;overflow:hidden}
+.adm-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#1d4ed8,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;font-family:'IBM Plex Mono',monospace}
+.adm-user-info{display:flex;flex-direction:column;gap:3px;flex:1;overflow:hidden;min-width:0}
+.adm-user-name{font-size:12px;font-weight:600;color:var(--a-tx1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.adm-role-pill{font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;width:fit-content;text-transform:uppercase;letter-spacing:.5px;font-family:'IBM Plex Mono',monospace}
+.adm-logout-btn{background:none;border:none;cursor:pointer;color:var(--a-tx3);padding:6px;border-radius:6px;display:flex;align-items:center;transition:all .15s;flex-shrink:0;&:hover{color:var(--a-red);background:rgba(239,68,68,.1)}}
+.adm-topbar{height:52px;background:var(--a-bg1);border-bottom:1px solid var(--a-border);display:flex;align-items:center;padding:0 18px;gap:12px;flex-shrink:0}
+.adm-toggle{background:none;border:none;cursor:pointer;color:var(--a-tx2);padding:7px;border-radius:7px;display:flex;align-items:center;transition:all .15s;&:hover{color:var(--a-tx1);background:var(--a-bg3)}}
+.adm-topbar-right{display:flex;align-items:center;gap:14px;margin-left:auto}
+.adm-online-chip{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--a-tx2);font-family:'IBM Plex Mono',monospace}
+.adm-clock{font-size:12px;color:var(--a-cyan2);font-weight:600;letter-spacing:.5px}
+.adm-topbar-date{font-size:11px;color:var(--a-tx3);font-family:'IBM Plex Mono',monospace;white-space:nowrap}
+.adm-back-link{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--a-tx3);text-decoration:none;padding:5px 8px;border-radius:6px;border:1px solid var(--a-border);transition:all .15s;&:hover{color:var(--a-tx1);border-color:var(--a-border2);background:var(--a-bg3)}}
+.adm-topbar-logout{background:none;border:none;cursor:pointer;color:var(--a-tx3);padding:6px;border-radius:6px;display:flex;align-items:center;transition:all .15s;&:hover{color:var(--a-red);background:rgba(239,68,68,.1)}}
+.adm-content{flex:1;overflow-y:auto;padding:22px;background:var(--a-bg0);&::-webkit-scrollbar{width:4px}&::-webkit-scrollbar-track{background:transparent}&::-webkit-scrollbar-thumb{background:var(--a-border2);border-radius:4px}}
+
+.adm-nav-group{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--a-tx3);padding:12px 10px 4px;font-family:'IBM Plex Mono',monospace}
+.adm-skip{position:absolute;left:-9999px;top:8px;z-index:200;background:var(--a-cyan);color:#000;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;&:focus{left:8px}}
+.adm-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:49}
+.adm-offline{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 18px;background:rgba(239,68,68,.12);color:var(--a-red);font-size:12px;border-bottom:1px solid rgba(239,68,68,.3)}
+.adm-loading{width:14px;height:14px;border-radius:50%;border:2px solid var(--a-border);border-top-color:var(--a-cyan);animation:adm-spin .7s linear infinite}
+@keyframes adm-spin{to{transform:rotate(360deg)}}
+.adm-nav-item:focus-visible,.adm-toggle:focus-visible,.adm-logout-btn:focus-visible,.adm-topbar-logout:focus-visible{outline:2px solid var(--a-cyan);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){.adm-sidebar{transition:none}.adm-loading{animation:none}}
+
+// ── Téléphone et petite tablette : le menu devient un tiroir par-dessus le contenu ──
+.adm-sidebar.mobile{position:fixed;top:0;bottom:0;left:0;height:100dvh;
+  &.open{width:min(280px,86vw);box-shadow:8px 0 32px rgba(0,0,0,.35)}
+  &.collapsed{width:0;border-right:none}
+}
+@media (max-width: 899px){
+  .adm-topbar{padding:0 10px;gap:8px}
+  .adm-topbar-right{gap:8px}
+  .adm-content{padding:12px}
+  .adm-hide-md{display:none}
+  .adm-nav-item{padding:12px 10px}   // cibles tactiles plus hautes
+}
+@media (max-width: 599px){ .adm-hide-sm{display:none} }

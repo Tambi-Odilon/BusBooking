@@ -1,0 +1,902 @@
+<div class="a-fade">
+
+  <!-- ── En-tête ─────────────────────────────────────────────────────────── -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+    <div>
+      <div style="font-size:18px;font-weight:700;color:var(--a-tx1);letter-spacing:-.4px">Gestion de la flotte</div>
+      <div class="a-mono" style="font-size:11px;color:var(--a-tx3);margin-top:3px">
+        {{ fleet.stats().total }} véhicules · {{ fleet.stats().active }} en service · {{ fleet.stats().totalCap }} places actives
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <!-- Toggle vue -->
+      <div style="display:flex;border:1px solid var(--a-border);border-radius:8px;overflow:hidden">
+        <button [class]="'a-btn sm ' + (viewMode() === 'cards' ? 'primary' : 'ghost')"
+                style="border-radius:0;border:none" (click)="viewMode.set('cards')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        </button>
+        <button [class]="'a-btn sm ' + (viewMode() === 'table' ? 'primary' : 'ghost')"
+                style="border-radius:0;border:none;border-left:1px solid var(--a-border)" (click)="viewMode.set('table')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        </button>
+      </div>
+      @if (auth.can('canManageFleet')) {
+        <button class="a-btn primary sm" (click)="openAdd()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nouveau véhicule
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- ── KPI ────────────────────────────────────────────────────────────────── -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin-bottom:18px">
+    <adm-stat label="En service"      [value]="fleet.stats().active"      color="a-green" [small]="true" />
+    <adm-stat label="Maintenance"     [value]="fleet.stats().maintenance" color="a-amber" [small]="true" />
+    <adm-stat label="Hors service"    [value]="fleet.stats().retired"     color="a-red"   [small]="true" />
+    <adm-stat label="Capacité active" [value]="fleet.stats().totalCap + ' pl.'" color="a-cyan" [small]="true" />
+    <adm-stat label="Occupation moy." [value]="fleet.stats().avgOcc + '%'" color="a-blue" [small]="true" />
+  </div>
+
+  <!-- ── Filtres ─────────────────────────────────────────────────────────── -->
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;align-items:flex-end">
+    <!-- Recherche -->
+    <div style="flex:1;min-width:180px;position:relative">
+      <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--a-tx3)"
+           xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="a-input" style="padding-left:32px" placeholder="Nom, matricule, référence, conducteur…"
+             [ngModel]="search()" (ngModelChange)="search.set($event)" />
+    </div>
+
+    <!-- Statut -->
+    <div>
+      <div class="a-mono" style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--a-tx3);margin-bottom:5px">Statut</div>
+      <select class="a-select" [ngModel]="filterStatus()" (ngModelChange)="filterStatus.set($event);selected.set(null)">
+        <option value="all">Tous</option>
+        <option value="active">En service</option>
+        <option value="maintenance">Maintenance</option>
+        <option value="retired">Hors service</option>
+      </select>
+    </div>
+
+    <!-- Type véhicule -->
+    <div>
+      <div class="a-mono" style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--a-tx3);margin-bottom:5px">Type</div>
+      <select class="a-select" [ngModel]="filterLayout()" (ngModelChange)="filterLayout.set($event);selected.set(null)">
+        <option value="all">Tous types</option>
+        <option value="bus">🚌 Grand Bus</option>
+        <option value="minibus16">🚐 Minibus 16</option>
+        <option value="minibus10">⭐ VIP 10</option>
+      </select>
+    </div>
+
+    <!-- Itinéraire -->
+    <div style="min-width:210px">
+      <div class="a-mono" style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--a-tx3);margin-bottom:5px">Itinéraire assigné</div>
+      <select class="a-select" style="width:100%" [ngModel]="filterRoute()" (ngModelChange)="filterRoute.set($event);selected.set(null)">
+        <option value="all">Tous les itinéraires</option>
+        <option value="unassigned">⚠ Non assignés</option>
+        @for (r of routes.active(); track r.id) {
+          <option [value]="r.id">{{ r.from }} → {{ r.to }}</option>
+        }
+      </select>
+    </div>
+
+    <!-- Tri -->
+    <div>
+      <div class="a-mono" style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--a-tx3);margin-bottom:5px">Trier par</div>
+      <select class="a-select" [ngModel]="sortBy()" (ngModelChange)="sortBy.set($event)">
+        <option value="name">Nom</option>
+        <option value="occ-desc">Occupation ↓</option>
+        <option value="trips-desc">Voyages ↓</option>
+        <option value="rev-desc">Revenus ↓</option>
+        <option value="cap">Capacité ↓</option>
+      </select>
+    </div>
+
+    @if (hasFilters()) {
+      <button class="a-btn ghost sm" (click)="clearFilters()" style="align-self:flex-end">
+        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Effacer
+      </button>
+    }
+  </div>
+
+  <!-- Compteur résultats -->
+  <div class="a-mono" style="font-size:10px;color:var(--a-tx3);margin-bottom:12px">
+    {{ filtered().length }} véhicule{{ filtered().length > 1 ? 's' : '' }} affiché{{ filtered().length > 1 ? 's' : '' }}
+  </div>
+
+  <!-- ── Layout liste + détail ─────────────────────────────────────────────── -->
+  <div [style.display]="'grid'"
+       [style.grid-template-columns]="selected() ? '1fr 360px' : '1fr'"
+       style="gap:14px;align-items:start">
+
+    <!-- ══ VUE CARTES ══════════════════════════════════════════════════════ -->
+    @if (viewMode() === 'cards') {
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px">
+        @if (filtered().length === 0) {
+          <div class="a-card" style="grid-column:1/-1;text-align:center;padding:48px 24px">
+            <div style="font-size:32px;margin-bottom:12px">🚌</div>
+            <div style="font-size:14px;font-weight:600;color:var(--a-tx1);margin-bottom:6px">Aucun véhicule trouvé</div>
+            <button class="a-btn ghost sm" (click)="clearFilters()" style="margin-top:10px">Réinitialiser</button>
+          </div>
+        }
+        @for (b of filtered(); track b.id) {
+          <div class="a-card" style="padding:0;overflow:hidden;cursor:pointer;transition:border-color .15s"
+               [style.border-color]="selected()?.id === b.id ? 'var(--a-cyan)' : 'var(--a-border)'"
+               (click)="select(b)">
+
+            <!-- Bande statut -->
+            <div style="height:3px" [style.background]="statusBarColor(b.status)"></div>
+
+            <div style="padding:14px 16px">
+              <!-- Header -->
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span style="font-size:26px;line-height:1">{{ busIcon(b.vehicleLayout) }}</span>
+                  <div>
+                    <div style="font-weight:700;font-size:13px;color:var(--a-tx1)">{{ b.name }}</div>
+                    <!-- Matricule + référence -->
+                    <div class="a-mono" style="font-size:9px;color:var(--a-cyan);margin-top:2px">{{ b.ref }}</div>
+                    <div class="a-mono" style="font-size:9px;color:var(--a-tx3)">{{ b.plateNumber }}</div>
+                  </div>
+                </div>
+                <span class="a-mono"
+                      style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;letter-spacing:.3px;white-space:nowrap"
+                      [style.background]="statusBg(b.status)"
+                      [style.color]="statusColor(b.status)">
+                  {{ statusLabel(b.status) }}
+                </span>
+              </div>
+
+              <!-- Infos principales -->
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+                @for (f of [
+                  [b.type, 'Type'],
+                  [b.capacity + ' pl.', 'Capacité'],
+                  [b.driver.split(' ')[0], 'Conducteur']
+                ]; track f[1]) {
+                  <div>
+                    <div class="a-mono" style="font-size:8px;color:var(--a-tx3);text-transform:uppercase;letter-spacing:.5px">{{ f[1] }}</div>
+                    <div style="font-size:11px;color:var(--a-tx1);font-weight:600;margin-top:2px">{{ f[0] }}</div>
+                  </div>
+                }
+              </div>
+
+              <!-- Métriques -->
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">
+                <div style="background:var(--a-bg3);border-radius:7px;padding:8px;text-align:center">
+                  <div class="a-mono" style="font-size:14px;font-weight:700;color:var(--a-cyan)">{{ b.totalTrips }}</div>
+                  <div style="font-size:8px;color:var(--a-tx3);margin-top:1px">Voyages</div>
+                </div>
+                <div style="background:var(--a-bg3);border-radius:7px;padding:8px;text-align:center">
+                  <div class="a-mono" style="font-size:14px;font-weight:700" [style.color]="occColor(b.avgOccupancy)">{{ b.avgOccupancy }}%</div>
+                  <div style="font-size:8px;color:var(--a-tx3);margin-top:1px">Occupation</div>
+                </div>
+                <div style="background:var(--a-bg3);border-radius:7px;padding:8px;text-align:center">
+                  <div class="a-mono" style="font-size:14px;font-weight:700;color:var(--a-green)">{{ (b.totalRevenue/1000000).toFixed(1) }}M</div>
+                  <div style="font-size:8px;color:var(--a-tx3);margin-top:1px">Ar revenus</div>
+                </div>
+              </div>
+
+              <!-- Barre occupation -->
+              <adm-progress [value]="b.avgOccupancy" style="display:block;margin-bottom:10px" />
+
+              <!-- Itinéraires assignés -->
+              @if (fleet.routesForBus(b.id).length > 0) {
+                <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">
+                  @for (r of fleet.routesForBus(b.id); track r.id) {
+                    <span style="font-size:9px;padding:2px 7px;background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.2);border-radius:4px;color:var(--a-cyan)"
+                          class="a-mono">
+                      {{ r.from.slice(0,4) }}→{{ r.to.slice(0,4) }}
+                    </span>
+                  }
+                </div>
+              } @else {
+                <div style="font-size:10px;color:var(--a-amber);margin-bottom:10px">⚠ Aucun itinéraire assigné</div>
+              }
+
+      
+        <!-- ══ Manifeste de voyage ══════════════════════════════════════ -->
+        <div class="a-card-title" style="margin-top:14px;display:flex;align-items:center;justify-content:space-between">
+          <span>📋 Manifeste de voyage</span>
+          <button (click)="showManifeste.set(!showManifeste())"
+                  class="a-btn ghost sm" style="font-size:10px">
+            {{ showManifeste() ? 'Masquer' : 'Afficher' }}
+          </button>
+        </div>
+
+        @if (showManifeste()) {
+          <!-- Sélecteur de date -->
+          <div style="margin-bottom:10px">
+            <label class="a-form-label" style="font-size:10px">Date du voyage</label>
+            <input type="date" class="a-input" style="font-size:12px"
+                   [ngModel]="manifesteDate()"
+                   (ngModelChange)="manifesteDate.set($event)" />
+          </div>
+
+          <!-- Stats occupation -->
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
+            <div style="background:var(--a-bg3);border-radius:7px;padding:8px;text-align:center">
+              <div class="a-mono" style="font-size:16px;font-weight:700;color:var(--a-cyan)">{{ b.capacity }}</div>
+              <div style="font-size:9px;color:var(--a-tx3)">Places</div>
+            </div>
+            <div style="background:rgba(16,185,129,.08);border-radius:7px;padding:8px;text-align:center">
+              <div class="a-mono" style="font-size:16px;font-weight:700;color:#10b981">{{ manifesteBookings(b.id).length }}</div>
+              <div style="font-size:9px;color:var(--a-tx3)">Réservées</div>
+            </div>
+            <div style="background:rgba(245,158,11,.08);border-radius:7px;padding:8px;text-align:center">
+              <div class="a-mono" style="font-size:16px;font-weight:700;color:var(--a-amber)">{{ b.capacity - manifesteBookings(b.id).length }}</div>
+              <div style="font-size:9px;color:var(--a-tx3)">Libres</div>
+            </div>
+          </div>
+
+          <!-- Liste des sièges avec passagers -->
+          <div style="max-height:200px;overflow-y:auto;border:1px solid var(--a-border);border-radius:8px;margin-bottom:10px">
+            @if (manifesteBookings(b.id).length === 0) {
+              <div style="padding:16px;text-align:center;color:var(--a-tx3);font-size:11px">Aucune réservation pour cette date</div>
+            } @else {
+              @for (bk of manifesteBookings(b.id); track bk.id) {
+                <div style="padding:8px 12px;border-bottom:1px solid var(--a-border)">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+                    <div style="display:flex;gap:3px;flex-wrap:wrap">
+                      @for (seat of bk.seats; track seat) {
+                        <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(8,145,178,.15);color:var(--a-cyan)">
+                          {{ seat }}
+                        </span>
+                      }
+                    </div>
+                    <span style="font-size:11px;font-weight:600;color:var(--a-tx1)">{{ bk.passengerName }}</span>
+                  </div>
+                  <div class="a-mono" style="font-size:9px;color:var(--a-tx3)">
+                    {{ bk.passengerPhone }} · Réf: {{ bk.reference }}
+                  </div>
+                </div>
+              }
+            }
+          </div>
+
+          <!-- Envoi email (inline) -->
+          @if (mailManifeste()) {
+            <div style="padding:10px;background:var(--a-bg3);border-radius:8px;margin-bottom:8px">
+              <div style="font-size:10px;color:var(--a-tx3);margin-bottom:6px">📧 Envoyer le manifeste par email</div>
+              <div style="display:flex;gap:6px">
+                <input class="a-input" type="email" style="flex:1;font-size:11px"
+                       [(ngModel)]="manifesteMailTo" placeholder="destinataire@email.com" />
+                <button class="a-btn primary sm" (click)="sendManifeste(b)" style="font-size:10px">Envoyer</button>
+                <button class="a-btn ghost sm" (click)="mailManifeste.set(false)" style="padding:4px 7px">✕</button>
+              </div>
+            </div>
+          }
+
+          <!-- Boutons export -->
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <button class="a-btn ghost sm" style="font-size:10px;flex:1;justify-content:center"
+                    (click)="mailManifeste.set(!mailManifeste())">📧 Email</button>
+            <button class="a-btn ghost sm" style="font-size:10px;flex:1;justify-content:center"
+                    (click)="downloadManifeste(b)">⬇ PDF</button>
+            <button class="a-btn primary sm" style="font-size:10px;flex:1;justify-content:center"
+                    (click)="printManifeste(b)">🖨 Imprimer</button>
+          </div>
+        }
+
+        <!-- Note maintenance -->
+              @if (b.status === 'maintenance' && b.maintenanceNote) {
+                <div style="font-size:10px;color:var(--a-amber);background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.15);border-radius:6px;padding:6px 9px;margin-bottom:10px">
+                  ⚙ {{ b.maintenanceNote }}
+                </div>
+              }
+
+              <!-- Actions -->
+              @if (auth.can('canManageFleet')) {
+                <div style="display:flex;gap:5px;flex-wrap:wrap" (click)="$event.stopPropagation()">
+                  <button class="a-btn ghost sm" title="Modifier" (click)="openEdit(b, $event)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Modifier
+                  </button>
+                  <button class="a-btn ghost sm" title="Changer statut" (click)="openStatus(b, $event)"
+                          [style.color]="statusColor(b.status)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                    Statut
+                  </button>
+                  <button class="a-btn ghost sm" title="Itinéraires" (click)="openRoutes(b, $event)"
+                          style="color:var(--a-cyan)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M12 3l7 9-7 9-7-9 7-9z"/></svg>
+                    Itinéraires
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- ══ VUE TABLEAU ═════════════════════════════════════════════════════ -->
+    @if (viewMode() === 'table') {
+      <div class="a-card" style="padding:0;overflow:hidden">
+        <div class="a-table-wrap">
+          <table class="a-table">
+            <thead>
+              <tr>
+                <th>Référence / Véhicule</th>
+                <th>Matricule</th>
+                <th>Type</th>
+                <th>Statut</th>
+                <th>Conducteur</th>
+                <th>Itinéraires</th>
+                <th>Voyages</th>
+                <th>Occupation</th>
+                <th>Revenus</th>
+                @if (auth.can('canManageFleet')) { <th>Actions</th> }
+              </tr>
+            </thead>
+            <tbody>
+              @for (b of filtered(); track b.id) {
+                <tr style="cursor:pointer" (click)="select(b)"
+                    [style.background]="selected()?.id === b.id ? 'rgba(6,182,212,.05)' : ''">
+                  <td>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span style="font-size:18px">{{ busIcon(b.vehicleLayout) }}</span>
+                      <div>
+                        <div style="font-weight:600;color:var(--a-tx1);font-size:12px">{{ b.name }}</div>
+                        <div class="a-mono" style="font-size:9px;color:var(--a-cyan)">{{ b.ref }}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="a-mono" style="font-size:11px">{{ b.plateNumber }}</td>
+                  <td style="font-size:11px;color:var(--a-tx2)">{{ b.type }}</td>
+                  <td>
+                    <span class="a-mono" style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px"
+                          [style.background]="statusBg(b.status)" [style.color]="statusColor(b.status)">
+                      {{ statusLabel(b.status) }}
+                    </span>
+                  </td>
+                  <td style="font-size:11px;color:var(--a-tx2)">{{ b.driver }}</td>
+                  <td>
+                    <div style="display:flex;flex-wrap:wrap;gap:3px">
+                      @for (r of fleet.routesForBus(b.id).slice(0,2); track r.id) {
+                        <span class="a-mono" style="font-size:8px;padding:1px 5px;background:rgba(6,182,212,.1);color:var(--a-cyan);border-radius:3px">
+                          {{ r.from.slice(0,4) }}→{{ r.to.slice(0,4) }}
+                        </span>
+                      }
+                      @if (fleet.routesForBus(b.id).length > 2) {
+                        <span style="font-size:9px;color:var(--a-tx3)">+{{ fleet.routesForBus(b.id).length - 2 }}</span>
+                      }
+                      @if (fleet.routesForBus(b.id).length === 0) {
+                        <span style="font-size:9px;color:var(--a-amber)">⚠ Aucun</span>
+                      }
+                    </div>
+                  </td>
+                  <td class="a-mono" style="font-size:12px;color:var(--a-tx1)">{{ b.totalTrips }}</td>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:7px">
+                      <adm-progress [value]="b.avgOccupancy" style="width:60px;display:block" />
+                      <span class="a-mono" style="font-size:11px;font-weight:700" [style.color]="occColor(b.avgOccupancy)">
+                        {{ b.avgOccupancy }}%
+                      </span>
+                    </div>
+                  </td>
+                  <td class="a-mono" style="font-size:11px;color:var(--a-green)">
+                    {{ (b.totalRevenue/1000000).toFixed(1) }}M Ar
+                  </td>
+                  @if (auth.can('canManageFleet')) {
+                    <td (click)="$event.stopPropagation()">
+                      <div style="display:flex;gap:4px">
+                        <button class="a-btn ghost sm" title="Modifier" (click)="openEdit(b, $event)" style="padding:4px 6px">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                        <button class="a-btn ghost sm" title="Statut" (click)="openStatus(b, $event)" style="padding:4px 6px"
+                                [style.color]="statusColor(b.status)">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                        </button>
+                        <button class="a-btn ghost sm" title="Itinéraires" (click)="openRoutes(b, $event)" style="padding:4px 6px;color:var(--a-cyan)">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M12 3l7 9-7 9-7-9 7-9z"/></svg>
+                        </button>
+                      </div>
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- ══ PANNEAU DÉTAIL ════════════════════════════════════════════════════ -->
+    @if (selected(); as b) {
+      <div class="a-card a-fade" style="position:sticky;top:16px;padding:18px">
+
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+          <div>
+            <div style="font-size:22px;margin-bottom:4px">{{ busIcon(b.vehicleLayout) }}</div>
+            <div style="font-size:14px;font-weight:700;color:var(--a-tx1)">{{ b.name }}</div>
+            <div class="a-mono" style="font-size:10px;color:var(--a-cyan);margin-top:2px">{{ b.ref }}</div>
+          </div>
+          <button class="a-btn ghost sm" (click)="selected.set(null)" style="padding:4px 6px">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <!-- Statut badge -->
+        <div style="margin-bottom:14px">
+          <span class="a-mono" style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px"
+                [style.background]="statusBg(b.status)" [style.color]="statusColor(b.status)">
+            {{ statusLabel(b.status) }}
+          </span>
+        </div>
+
+        <!-- Infos identité -->
+        <div class="a-card-title">Identification</div>
+        @for (f of [
+          ['Référence', b.ref],
+          ['Matricule', b.plateNumber],
+          ['Type', b.type],
+          ['Capacité', b.capacity + ' places'],
+          ['Conducteur', b.driver],
+          ['Année', b.yearBuilt ? '' + b.yearBuilt : '—']
+        ]; track f[0]) {
+          <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--a-border)">
+            <span style="font-size:11px;color:var(--a-tx3)">{{ f[0] }}</span>
+            <span class="a-mono" style="font-size:11px;color:var(--a-tx1)">{{ f[1] }}</span>
+          </div>
+        }
+
+        <!-- Statistiques -->
+        <div class="a-card-title" style="margin-top:14px">Performances</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+          <div style="background:var(--a-bg3);border-radius:8px;padding:10px;text-align:center">
+            <div class="a-mono" style="font-size:18px;font-weight:700;color:var(--a-cyan)">{{ b.totalTrips }}</div>
+            <div style="font-size:9px;color:var(--a-tx3);margin-top:2px">Voyages total</div>
+          </div>
+          <div style="background:var(--a-bg3);border-radius:8px;padding:10px;text-align:center">
+            <div class="a-mono" style="font-size:18px;font-weight:700" [style.color]="occColor(b.avgOccupancy)">{{ b.avgOccupancy }}%</div>
+            <div style="font-size:9px;color:var(--a-tx3);margin-top:2px">Occupation moy.</div>
+          </div>
+        </div>
+        <div style="background:var(--a-bg3);border-radius:8px;padding:10px;text-align:center;margin-bottom:14px">
+          <div class="a-mono" style="font-size:16px;font-weight:700;color:var(--a-green)">
+            {{ b.totalRevenue | ariary }}
+          </div>
+          <div style="font-size:9px;color:var(--a-tx3);margin-top:2px">Revenu total généré</div>
+        </div>
+
+        <!-- Itinéraires -->
+        <div class="a-card-title">Itinéraires assignés</div>
+        @if (fleet.routesForBus(b.id).length === 0) {
+          <div style="font-size:11px;color:var(--a-amber);margin-bottom:12px;font-style:italic">Aucun itinéraire assigné</div>
+        } @else {
+          <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:12px">
+            @for (r of fleet.routesForBus(b.id); track r.id) {
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 9px;background:var(--a-bg3);border-radius:6px">
+                <span style="font-size:11px;color:var(--a-tx1)">{{ r.from }} → {{ r.to }}</span>
+                <span class="a-mono" style="font-size:9px"
+                      [style.color]="r.status === 'active' ? 'var(--a-green)' : 'var(--a-amber)'">
+                  {{ r.status === 'active' ? '●' : '⏸' }}
+                </span>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- ══ Emploi du temps ══════════════════════════════════════════ -->
+        <div class="a-card-title" style="margin-top:14px;display:flex;align-items:center;justify-content:space-between">
+          <span>Emploi du temps</span>
+          <div style="display:flex;gap:4px">
+            <button (click)="scheduleTab.set('week')"
+                    [style]="scheduleTab() === 'week' ? 'background:var(--a-cyan2);color:#000;padding:2px 8px;border-radius:5px;font-size:9px;border:none;cursor:pointer;font-weight:700'
+                                                       : 'background:var(--a-bg3);color:var(--a-tx2);padding:2px 8px;border-radius:5px;font-size:9px;border:none;cursor:pointer'">
+              Semaine
+            </button>
+            <button (click)="scheduleTab.set('list')"
+                    [style]="scheduleTab() === 'list' ? 'background:var(--a-cyan2);color:#000;padding:2px 8px;border-radius:5px;font-size:9px;border:none;cursor:pointer;font-weight:700'
+                                                      : 'background:var(--a-bg3);color:var(--a-tx2);padding:2px 8px;border-radius:5px;font-size:9px;border:none;cursor:pointer'">
+              Liste
+            </button>
+          </div>
+        </div>
+
+        @if (scheduleTab() === 'week') {
+          <!-- Navigation semaine -->
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:8px">
+            <button class="a-btn ghost sm" style="padding:3px 7px;font-size:10px" (click)="schedPrevWeek()">←</button>
+            <button class="a-btn ghost sm" style="padding:3px 7px;font-size:10px" (click)="schedToday()">Auj.</button>
+            <button class="a-btn ghost sm" style="padding:3px 7px;font-size:10px" (click)="schedNextWeek()">→</button>
+          </div>
+
+          <!-- Grille 7 colonnes mini -->
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:12px">
+            @for (day of scheduleDays(); track day.date) {
+              <div [style]="'border-radius:6px;padding:4px 3px;min-height:64px;border:1.5px solid;' +
+                             (day.isToday ? 'border-color:var(--a-cyan);background:rgba(6,182,212,.06)' : 'border-color:var(--a-border);background:var(--a-bg3)')">
+                <!-- Label jour -->
+                <div style="text-align:center;margin-bottom:3px">
+                  <div style="font-size:7.5px;text-transform:uppercase;letter-spacing:.3px"
+                       [style.color]="day.isToday ? 'var(--a-cyan)' : 'var(--a-tx3)'">
+                    {{ day.label.split(' ')[0] }}
+                  </div>
+                  <div style="font-size:12px;font-weight:700;line-height:1.1"
+                       [style.color]="day.isToday ? 'var(--a-cyan)' : 'var(--a-tx1)'">
+                    {{ day.label.split(' ')[1] }}
+                  </div>
+                </div>
+                <!-- Voyages du jour -->
+                @for (t of day.trips; track t.id) {
+                  <div [style]="'margin-bottom:2px;padding:2px 3px;border-radius:3px;border-left:2px solid ' + tripStatusColor(t.status) + ';background:' + tripStatusColor(t.status) + '18;font-size:7.5px;font-family:IBM Plex Mono,monospace;line-height:1.3;color:var(--a-tx1)'"
+                       [title]="t.from + ' → ' + t.to + ' ' + t.departure + ' → ' + t.arrival">
+                    {{ t.departure }}<br>{{ t.to.slice(0,6) }}…
+                  </div>
+                }
+                @if (day.trips.length === 0) {
+                  <div style="font-size:7px;color:var(--a-tx3);text-align:center;padding-top:6px">—</div>
+                }
+              </div>
+            }
+          </div>
+          <!-- Légende jours de la semaine -->
+          <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+            @for (day of scheduleDays(); track day.date) {
+              <div style="text-align:center;flex:1">
+                @if (day.trips.length > 0) {
+                  <span [style]="'font-size:8px;font-weight:700;padding:1px 4px;border-radius:8px;background:rgba(6,182,212,.12);color:var(--a-cyan)'">
+                    {{ day.trips.length }}
+                  </span>
+                }
+              </div>
+            }
+          </div>
+        }
+
+        @if (scheduleTab() === 'list') {
+          <!-- Liste des voyages de ce véhicule -->
+          <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:12px">
+            @for (t of busActiveTrips(b.id); track t.id) {
+              @if (true) {
+                <div style="padding:7px 10px;background:var(--a-bg3);border-radius:7px;border-left:2px solid var(--a-cyan)">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+                    <span style="font-size:11px;font-weight:600;color:var(--a-tx1)">{{ t.from }} → {{ t.to }}</span>
+                    <span class="a-mono" style="font-size:10px;font-weight:700;color:var(--a-cyan)">{{ t.departure }}</span>
+                  </div>
+                  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                    <span style="font-size:9px;background:var(--a-bg4);padding:1px 6px;border-radius:4px;color:var(--a-tx2)">
+                      {{ tripsSvc.recurrenceLabel(t.recurrence) }}
+                    </span>
+                    @if (t.recurrence === 'once') {
+                      <span class="a-mono" style="font-size:9px;color:var(--a-amber)">{{ t.specificDate }}</span>
+                    } @else if (t.recurrence !== 'daily') {
+                      <div style="display:flex;gap:2px">
+                        @for (d of [0,1,2,3,4,5,6]; track d) {
+                          <span [style]="'font-size:8px;padding:1px 3px;border-radius:3px;' + (t.days.includes(d) ? 'background:rgba(6,182,212,.15);color:var(--a-cyan);font-weight:700' : 'color:var(--a-tx3)')">
+                            {{ 'DLMMJVS'[d] }}
+                          </span>
+                        }
+                      </div>
+                    }
+                    <span class="a-mono" style="font-size:9px;color:var(--a-tx3)">arr. {{ t.arrival }}</span>
+                  </div>
+                </div>
+              }
+            }
+@if (busActiveTripsCount(b.id) === 0) {
+              <div style="font-size:11px;color:var(--a-tx3);font-style:italic;padding:8px 0">Aucun voyage assigné</div>
+            }
+          </div>
+        }
+
+
+        <!-- ══ Manifeste de voyage ══════════════════════════════════════ -->
+        <div class="a-card-title" style="margin-top:14px;display:flex;align-items:center;justify-content:space-between">
+          <span>📋 Manifeste de voyage</span>
+          <button (click)="showManifeste.set(!showManifeste())"
+                  class="a-btn ghost sm" style="font-size:10px">
+            {{ showManifeste() ? 'Masquer' : 'Afficher' }}
+          </button>
+        </div>
+
+        @if (showManifeste()) {
+          <!-- Sélecteur de date -->
+          <div style="margin-bottom:10px">
+            <label class="a-form-label" style="font-size:10px">Date du voyage</label>
+            <input type="date" class="a-input" style="font-size:12px"
+                   [ngModel]="manifesteDate()"
+                   (ngModelChange)="manifesteDate.set($event)" />
+          </div>
+
+          <!-- Stats occupation -->
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
+            <div style="background:var(--a-bg3);border-radius:7px;padding:8px;text-align:center">
+              <div class="a-mono" style="font-size:16px;font-weight:700;color:var(--a-cyan)">{{ b.capacity }}</div>
+              <div style="font-size:9px;color:var(--a-tx3)">Places</div>
+            </div>
+            <div style="background:rgba(16,185,129,.08);border-radius:7px;padding:8px;text-align:center">
+              <div class="a-mono" style="font-size:16px;font-weight:700;color:#10b981">{{ manifesteBookings(b.id).length }}</div>
+              <div style="font-size:9px;color:var(--a-tx3)">Réservées</div>
+            </div>
+            <div style="background:rgba(245,158,11,.08);border-radius:7px;padding:8px;text-align:center">
+              <div class="a-mono" style="font-size:16px;font-weight:700;color:var(--a-amber)">{{ b.capacity - manifesteBookings(b.id).length }}</div>
+              <div style="font-size:9px;color:var(--a-tx3)">Libres</div>
+            </div>
+          </div>
+
+          <!-- Liste des sièges avec passagers -->
+          <div style="max-height:200px;overflow-y:auto;border:1px solid var(--a-border);border-radius:8px;margin-bottom:10px">
+            @if (manifesteBookings(b.id).length === 0) {
+              <div style="padding:16px;text-align:center;color:var(--a-tx3);font-size:11px">Aucune réservation pour cette date</div>
+            } @else {
+              @for (bk of manifesteBookings(b.id); track bk.id) {
+                <div style="padding:8px 12px;border-bottom:1px solid var(--a-border)">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+                    <div style="display:flex;gap:3px;flex-wrap:wrap">
+                      @for (seat of bk.seats; track seat) {
+                        <span style="font-size:10px;font-family:'IBM Plex Mono',monospace;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(8,145,178,.15);color:var(--a-cyan)">
+                          {{ seat }}
+                        </span>
+                      }
+                    </div>
+                    <span style="font-size:11px;font-weight:600;color:var(--a-tx1)">{{ bk.passengerName }}</span>
+                  </div>
+                  <div class="a-mono" style="font-size:9px;color:var(--a-tx3)">
+                    {{ bk.passengerPhone }} · Réf: {{ bk.reference }}
+                  </div>
+                </div>
+              }
+            }
+          </div>
+
+          <!-- Envoi email (inline) -->
+          @if (mailManifeste()) {
+            <div style="padding:10px;background:var(--a-bg3);border-radius:8px;margin-bottom:8px">
+              <div style="font-size:10px;color:var(--a-tx3);margin-bottom:6px">📧 Envoyer le manifeste par email</div>
+              <div style="display:flex;gap:6px">
+                <input class="a-input" type="email" style="flex:1;font-size:11px"
+                       [(ngModel)]="manifesteMailTo" placeholder="destinataire@email.com" />
+                <button class="a-btn primary sm" (click)="sendManifeste(b)" style="font-size:10px">Envoyer</button>
+                <button class="a-btn ghost sm" (click)="mailManifeste.set(false)" style="padding:4px 7px">✕</button>
+              </div>
+            </div>
+          }
+
+          <!-- Boutons export -->
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <button class="a-btn ghost sm" style="font-size:10px;flex:1;justify-content:center"
+                    (click)="mailManifeste.set(!mailManifeste())">📧 Email</button>
+            <button class="a-btn ghost sm" style="font-size:10px;flex:1;justify-content:center"
+                    (click)="downloadManifeste(b)">⬇ PDF</button>
+            <button class="a-btn primary sm" style="font-size:10px;flex:1;justify-content:center"
+                    (click)="printManifeste(b)">🖨 Imprimer</button>
+          </div>
+        }
+
+        <!-- Note maintenance -->
+        @if (b.status === 'maintenance' && b.maintenanceNote) {
+          <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:7px;padding:9px 12px;margin-bottom:12px">
+            <div style="font-size:10px;font-weight:600;color:var(--a-amber);margin-bottom:3px">Note maintenance</div>
+            <div style="font-size:11px;color:var(--a-tx2)">{{ b.maintenanceNote }}</div>
+          </div>
+        }
+
+        <!-- Actions -->
+        @if (auth.can('canManageFleet')) {
+          <div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--a-border);padding-top:14px;margin-top:4px">
+            <button class="a-btn ghost sm" style="width:100%;justify-content:center" (click)="openEdit(b, $event)">Modifier les informations</button>
+            <button class="a-btn ghost sm" style="width:100%;justify-content:center;color:var(--a-cyan)" (click)="openRoutes(b, $event)">Gérer les itinéraires</button>
+            <button class="a-btn ghost sm" style="width:100%;justify-content:center" (click)="openStatus(b, $event)"
+                    [style.color]="statusColor(b.status)">Changer le statut</button>
+          </div>
+        }
+      </div>
+    }
+  </div><!-- end grid -->
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODALES                                                                    -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+@if (modal() !== null) {
+  <div class="a-overlay" (click)="closeModal()">
+    <div class="a-modal a-fade" style="max-width:560px" (click)="$event.stopPropagation()">
+
+      <!-- ── Modal Ajouter / Modifier ─────────────────────────────────────── -->
+      @if (modal() === 'add' || modal() === 'edit') {
+        <div class="a-modal-header">
+          <div class="a-modal-title">
+            {{ modal() === 'add' ? 'Nouveau véhicule' : 'Modifier le véhicule' }}
+          </div>
+          <button class="a-btn ghost sm" (click)="closeModal()" style="padding:4px 8px">✕</button>
+        </div>
+        <div class="a-modal-body">
+
+          <!-- Nom -->
+          <div style="margin-bottom:14px">
+            <label class="a-form-label">Nom du véhicule *</label>
+            <input class="a-input" placeholder="Ex : Express Côte Est" [(ngModel)]="form.name" />
+          </div>
+
+          <!-- Matricule — avec aperçu de la référence -->
+          <div style="margin-bottom:14px">
+            <label class="a-form-label">Matricule (immatriculation) *</label>
+            <input class="a-input" placeholder="MG-1234-ANT" [(ngModel)]="form.plateNumber"
+                   style="text-transform:uppercase" />
+            @if (form.plateNumber) {
+              <div class="a-mono" style="font-size:10px;color:var(--a-cyan);margin-top:5px">
+                Réf. générée : STR-{{ form.plateNumber.replace('-','').replace('-','').toUpperCase() }}-XXX
+              </div>
+            }
+          </div>
+
+          <!-- Type véhicule -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div>
+              <label class="a-form-label">Catégorie *</label>
+              <select class="a-select" style="width:100%" [(ngModel)]="form.vehicleLayout" (ngModelChange)="onLayoutChange()">
+                @for (l of layouts; track l) {
+                  <option [value]="l">{{ layoutLabels[l] }}</option>
+                }
+              </select>
+            </div>
+            <div>
+              <label class="a-form-label">Type précis</label>
+              <select class="a-select" style="width:100%" [(ngModel)]="form.type">
+                @for (t of currentTypeOptions; track t.label) {
+                  <option [value]="t.label">{{ t.label }} ({{ t.capacity }} pl.)</option>
+                }
+              </select>
+            </div>
+          </div>
+
+          <!-- Conducteur + Année -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div>
+              <label class="a-form-label">Conducteur attitré</label>
+              @if (modal() === 'add') {
+                <div style="font-size:11px;color:var(--a-tx3);padding:8px 0">À choisir après la création du véhicule (ou depuis la fiche du chauffeur).</div>
+              } @else {
+                <select class="a-select" style="width:100%" [(ngModel)]="form.driverId">
+                  <option value="">— Aucun —</option>
+                  @for (d of driversSvc.active(); track d.id) { <option [value]="d.id">{{ driversSvc.fullName(d) }}</option> }
+                </select>
+              }
+            </div>
+            <div>
+              <label class="a-form-label">Année de mise en service</label>
+              <input class="a-input" type="number" [min]="2000" [max]="currentYear"
+                     [(ngModel)]="form.yearBuilt" />
+            </div>
+          </div>
+
+          <!-- Note -->
+          <div>
+            <label class="a-form-label">Note interne</label>
+            <textarea class="a-input" rows="2" style="resize:vertical;min-height:56px"
+                      placeholder="Remarques, équipements particuliers…"
+                      [(ngModel)]="form.maintenanceNote"></textarea>
+          </div>
+        </div>
+        <div class="a-modal-footer">
+          <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+          <button class="a-btn primary sm" (click)="submitForm()">
+            {{ modal() === 'add' ? 'Ajouter à la flotte' : 'Enregistrer' }}
+          </button>
+        </div>
+      }
+
+      <!-- ── Modal Statut ─────────────────────────────────────────────────── -->
+      @if (modal() === 'status') {
+        <div class="a-modal-header">
+          <div class="a-modal-title">Changer le statut</div>
+          <button class="a-btn ghost sm" (click)="closeModal()" style="padding:4px 8px">✕</button>
+        </div>
+        <div class="a-modal-body">
+          @if (modalBus(); as b) {
+            <div style="background:var(--a-bg3);border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+              <span style="font-size:20px">{{ busIcon(b.vehicleLayout) }}</span>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ b.name }}</div>
+                <div class="a-mono" style="font-size:10px;color:var(--a-cyan)">{{ b.ref }}</div>
+              </div>
+              <span class="a-mono" style="font-size:9px;padding:2px 8px;border-radius:4px;margin-left:auto"
+                    [style.background]="statusBg(b.status)" [style.color]="statusColor(b.status)">
+                {{ statusLabel(b.status) }}
+              </span>
+            </div>
+          }
+
+          <!-- Sélection du nouveau statut -->
+          <label class="a-form-label">Nouveau statut</label>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+            @for (s of [
+              {val:'active',      label:'En service',    desc:'Véhicule opérationnel et disponible à la réservation', color:'var(--a-green)'},
+              {val:'maintenance', label:'En maintenance', desc:'Véhicule temporairement indisponible pour révision ou réparation', color:'var(--a-amber)'},
+              {val:'retired',     label:'Hors service',  desc:'Véhicule retiré définitivement de la flotte active', color:'var(--a-red)'}
+            ]; track s.val) {
+              <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid;transition:all .15s"
+                     [style.border-color]="statusForm.status === s.val ? s.color : 'var(--a-border)'"
+                     [style.background]="statusForm.status === s.val ? 'rgba(0,0,0,.15)' : 'var(--a-bg3)'">
+                <input type="radio" name="busStatus" [value]="s.val" [(ngModel)]="statusForm.status"
+                       style="accent-color:var(--a-cyan);margin-top:2px;flex-shrink:0" />
+                <div>
+                  <div style="font-size:12px;font-weight:600" [style.color]="s.color">{{ s.label }}</div>
+                  <div style="font-size:10px;color:var(--a-tx3);margin-top:2px">{{ s.desc }}</div>
+                </div>
+              </label>
+            }
+          </div>
+
+          <!-- Note si maintenance -->
+          @if (statusForm.status === 'maintenance') {
+            <div>
+              <label class="a-form-label">Description de la maintenance</label>
+              <textarea class="a-input" rows="2" style="resize:vertical"
+                        placeholder="Ex : Révision moteur, changement pneus, carrosserie…"
+                        [(ngModel)]="statusForm.note"></textarea>
+            </div>
+          }
+        </div>
+        <div class="a-modal-footer">
+          <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+          <button class="a-btn primary sm" (click)="submitStatus()">Confirmer</button>
+        </div>
+      }
+
+      <!-- ── Modal Itinéraires ─────────────────────────────────────────────── -->
+      @if (modal() === 'routes') {
+        <div class="a-modal-header">
+          <div class="a-modal-title">Assigner des itinéraires</div>
+          <button class="a-btn ghost sm" (click)="closeModal()" style="padding:4px 8px">✕</button>
+        </div>
+        <div class="a-modal-body">
+          @if (modalBus(); as b) {
+            <div style="background:var(--a-bg3);border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+              <span style="font-size:20px">{{ busIcon(b.vehicleLayout) }}</span>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ b.name }}</div>
+                <div class="a-mono" style="font-size:10px;color:var(--a-cyan)">{{ b.ref }} · {{ b.plateNumber }}</div>
+              </div>
+            </div>
+          }
+
+          <div class="a-mono" style="font-size:9px;color:var(--a-tx3);margin-bottom:10px;text-transform:uppercase;letter-spacing:.8px">
+            Sélectionner les itinéraires desservis par ce véhicule
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:7px;max-height:300px;overflow-y:auto">
+            @for (r of routes.routes(); track r.id) {
+              @if (r.status !== 'deleted') {
+                <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid;transition:all .15s"
+                       [style.border-color]="routeSelected(r.id) ? 'var(--a-cyan)' : 'var(--a-border)'"
+                       [style.background]="routeSelected(r.id) ? 'rgba(6,182,212,.07)' : 'var(--a-bg3)'"
+                       [style.opacity]="r.status === 'suspended' ? '.65' : '1'">
+                  <input type="checkbox" [checked]="routeSelected(r.id)" (change)="toggleRoute(r.id)"
+                         style="accent-color:var(--a-cyan);flex-shrink:0" />
+                  <div style="flex:1">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span style="font-size:12px;font-weight:600;color:var(--a-tx1)">{{ r.from }} → {{ r.to }}</span>
+                      @if (r.status === 'suspended') {
+                        <span class="a-mono" style="font-size:8px;color:var(--a-amber);padding:1px 5px;background:rgba(245,158,11,.1);border-radius:3px">Suspendu</span>
+                      }
+                    </div>
+                    <div style="font-size:10px;color:var(--a-tx3);margin-top:2px">
+                      {{ r.distanceKm }} km · {{ routes.formatDuration(r.durationMin) }} · {{ r.basePrice | ariary }}
+                    </div>
+                  </div>
+                </label>
+              }
+            }
+          </div>
+
+          <div class="a-mono" style="font-size:10px;color:var(--a-tx3);margin-top:10px">
+            {{ selectedRouteIds.length }} itinéraire{{ selectedRouteIds.length > 1 ? 's' : '' }} sélectionné{{ selectedRouteIds.length > 1 ? 's' : '' }}
+          </div>
+        </div>
+        <div class="a-modal-footer">
+          <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+          <button class="a-btn primary sm" (click)="submitRoutes()">Enregistrer les assignations</button>
+        </div>
+      }
+
+    </div>
+  </div>
+}

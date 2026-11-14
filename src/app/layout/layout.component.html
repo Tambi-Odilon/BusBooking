@@ -1,22 +1,27 @@
 <div class="min-h-screen bg-slate-50">
 
+  <a href="#contenu" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded-lg focus:shadow">Aller au contenu</a>
   <header class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between gap-3">
 
-      <!-- Logo -->
-      <a routerLink="/" class="flex items-center gap-3 flex-shrink-0">
-        <div class="bg-blue-600 p-2 rounded-xl">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-               fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 6v6"/><path d="M15 6v6"/>
-            <path d="M2 12h19.6"/>
-            <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/>
-            <circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>
-          </svg>
-        </div>
-        <div>
-          <h1 class="text-xl font-bold text-slate-900 font-display leading-tight">Soatrans</h1>
-          <p class="text-xs text-slate-500 leading-tight">{{ i18n.t().layout.tagline }}</p>
+      <!-- Logo et nom de la société (paramètres → identité) -->
+      <a routerLink="/" class="flex items-center gap-3 min-w-0" [attr.aria-label]="cfg.name()">
+        @if (cfg.identity().logoUrl) {
+          <img [src]="cfg.identity().logoUrl" [alt]="cfg.name()" class="h-10 w-auto max-w-[140px] object-contain flex-shrink-0" />
+        } @else {
+          <div class="bg-blue-600 p-2 rounded-xl flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"
+                 fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 6v6"/><path d="M15 6v6"/>
+              <path d="M2 12h19.6"/>
+              <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/>
+              <circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>
+            </svg>
+          </div>
+        }
+        <div class="min-w-0">
+          <p class="text-lg sm:text-xl font-bold text-slate-900 font-display leading-tight truncate">{{ cfg.name() }}</p>
+          <p class="text-xs text-slate-500 leading-tight truncate hidden sm:block">{{ cfg.identity().slogan || i18n.t().layout.tagline }}</p>
         </div>
       </a>
 
@@ -40,7 +45,7 @@
           @if (dropOpen()) {
             <div class="fixed inset-0 z-10" (click)="closeDrop()"></div>
             <div class="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-xl shadow-lg z-20 overflow-hidden">
-              @for (lang of langMeta; track lang.code) {
+              @for (lang of i18n.langs(); track lang.code) {
                 <button (click)="setLang(lang.code)"
                         [class]="'w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ' +
                           (i18n.lang() === lang.code ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-700 hover:bg-slate-50')">
@@ -160,15 +165,41 @@
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  @if (!api.online()) {
+    <div role="status" class="bg-amber-50 border-b border-amber-200 text-amber-900 text-sm text-center px-4 py-2">{{ i18n.t().x.offline }}</div>
+  } @else if (cfg.state() === 'unreachable' || cfg.state() === 'degraded') {
+    <div role="status" class="bg-amber-50 border-b border-amber-200 text-amber-900 text-sm text-center px-4 py-2">
+      {{ i18n.t().x.serverDown }} <button type="button" (click)="cfg.load()" class="underline font-semibold ml-1">{{ i18n.t().x.retry }}</button>
+    </div>
+  }
+
+  <main id="contenu" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+    <app-ad-banner position="banner_top" />
     <router-outlet />
+    <app-ad-banner position="banner_bottom" />
   </main>
 
   <footer class="border-t border-slate-200 bg-white mt-16">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-sm text-slate-500">
-      {{ i18n.t().layout.footer }}
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-sm text-slate-500">
+      <nav class="flex flex-wrap justify-center gap-x-6 gap-y-2" aria-label="Informations">
+        <a routerLink="/find" class="hover:text-blue-700 font-medium text-slate-700">{{ i18n.t().x.findTitle }}</a>
+        <a routerLink="/legal/terms" class="hover:text-blue-700">{{ i18n.t().x.terms }}</a>
+        <a routerLink="/legal/cancellation" class="hover:text-blue-700">{{ i18n.t().x.cancelPolicy }}</a>
+        <a routerLink="/legal/privacy" class="hover:text-blue-700">{{ i18n.t().x.privacy }}</a>
+        <a routerLink="/legal/contact" class="hover:text-blue-700">{{ i18n.t().x.contactUs }}</a>
+      </nav>
+      @if (cfg.contact().phones.length || cfg.contact().email) {
+        <p class="text-center mt-4">
+          @for (ph of cfg.contact().phones; track ph) { <a [href]="'tel:' + ph" class="font-semibold text-slate-700 mx-2">{{ ph }}</a> }
+          @if (cfg.contact().email) { <a [href]="'mailto:' + cfg.contact().email" class="mx-2">{{ cfg.contact().email }}</a> }
+        </p>
+      }
+      <p class="text-center mt-4 text-xs">© {{ cfg.year }} {{ cfg.identity().legalName || cfg.name() }}. {{ i18n.t().x.rights }}</p>
     </div>
   </footer>
+
+  <!-- Notifications publicitaires (coin bas-droite) -->
+  <app-ad-notification />
 
   <!-- Modal Auth (portée au niveau layout) -->
   @if (showAuth()) {

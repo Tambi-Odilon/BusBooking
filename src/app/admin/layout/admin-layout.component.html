@@ -1,0 +1,108 @@
+<div class="admin-root" [attr.data-admin-theme]="theme.theme()" style="display:flex;height:100vh;overflow:hidden;">
+
+  <a href="#adm-main" class="adm-skip">Aller au contenu</a>
+  @if (isMobile() && sidebarOpen()) { <div class="adm-backdrop" (click)="sidebarOpen.set(false)"></div> }
+
+  <!-- ── Sidebar ── -->
+  <aside [class]="'adm-sidebar ' + (sidebarOpen() ? 'open' : 'collapsed') + (isMobile() ? ' mobile' : '')" aria-label="Menu principal">
+    <div class="adm-logo">
+      @if (cfg.identity().logoDarkUrl || cfg.identity().logoUrl) {
+        <img [src]="theme.isDark ? (cfg.identity().logoDarkUrl || cfg.identity().logoUrl) : (cfg.identity().logoUrl || cfg.identity().logoDarkUrl)" [alt]="cfg.name()" style="height:30px;max-width:44px;object-fit:contain;flex-shrink:0" />
+      } @else {
+        <div class="adm-logo-mark">{{ cfg.initials() }}</div>
+      }
+      @if (sidebarOpen()) {
+        <div class="adm-logo-text">
+          <span class="adm-brand">{{ cfg.name() }}</span>
+          <span class="adm-sub">Back-office</span>
+        </div>
+      }
+    </div>
+
+    <nav class="adm-nav">
+      @for (item of visibleNav(); track item.id) {
+        @if (item.firstOfGroup && sidebarOpen()) { <div class="adm-nav-group">{{ item.group }}</div> }
+        <a [routerLink]="item.path" routerLinkActive="active" class="adm-nav-item" [title]="item.label" [attr.aria-label]="item.label">
+          <span class="adm-nav-icon" [innerHTML]="icon(item.icon)"></span>
+          @if (sidebarOpen()) {
+            <span class="adm-nav-label">{{ item.label }}</span>
+            @if (item.badge && item.badge()) {
+              <span class="adm-badge-pill">{{ item.badge() }}</span>
+            }
+          } @else {
+            @if (item.badge && item.badge()) { <span class="adm-badge-dot"></span> }
+          }
+        </a>
+      }
+    </nav>
+
+    <div class="adm-user" style="cursor:pointer;transition:background .15s" (click)="goToProfile()" title="Mon profil">
+      <div class="adm-avatar">{{ getInitials() }}</div>
+      @if (sidebarOpen()) {
+        <div class="adm-user-info">
+          <span class="adm-user-name">{{ auth.currentAdmin()?.firstName }} {{ auth.currentAdmin()?.lastName }}</span>
+          <span class="adm-role-pill"
+                [style.background]="auth.getRoleBg(auth.currentAdmin()!.role)"
+                [style.color]="auth.getRoleColor(auth.currentAdmin()!.role)">
+            {{ auth.getRoleLabel(auth.currentAdmin()!.role) }}
+          </span>
+        </div>
+        <button (click)="$event.stopPropagation(); logout()" class="adm-logout-btn" title="Déconnexion" aria-label="Déconnexion" [innerHTML]="icon('logout')"></button>
+      }
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;">
+    <header class="adm-topbar">
+      <button (click)="toggleSidebar()" class="adm-toggle" aria-label="Ouvrir ou fermer le menu" [attr.aria-expanded]="sidebarOpen()" [innerHTML]="icon('menu')"></button>
+      @if (api.pending() > 0) { <span class="adm-loading" role="status" aria-label="Chargement"></span> }
+      <div class="adm-topbar-right">
+        <div class="adm-online-chip adm-hide-sm">
+          <span class="a-online-dot"></span>
+          <span>{{ data.stats().activeUsers }} en ligne</span>
+        </div>
+        <div class="adm-clock a-mono adm-hide-sm">{{ liveTime() }}</div>
+        <div class="adm-topbar-date adm-hide-md">{{ currentDate }}</div>
+        <a routerLink="/" class="adm-back-link" title="Retour site client">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          Site
+        </a>
+        @if (auth.can('canViewSettings') && emailSvc.failed() > 0) {
+          <a routerLink="/admin/messages" style="position:relative;display:flex;align-items:center;padding:5px 8px;border-radius:7px;background:var(--a-bg3);color:var(--a-tx2);text-decoration:none" title="Messages en échec" aria-label="Messages en échec">
+            <span [innerHTML]="icon('mail')" style="display:flex"></span>
+            <span style="position:absolute;top:-3px;right:-3px;background:var(--a-red);color:#fff;font-size:8px;font-weight:700;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px" class="a-mono">{{ emailSvc.failed() }}</span>
+          </a>
+        }
+        <!-- Theme toggle -->
+        <button class="a-btn ghost sm adm-theme-toggle" (click)="theme.toggle()" [title]="theme.isDark ? 'Passer en mode clair' : 'Passer en mode sombre'" style="padding:5px 8px;gap:5px">
+          @if (theme.theme() === 'dark') {
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          } @else {
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          }
+        </button>
+        <button (click)="logout()" class="adm-topbar-logout" aria-label="Déconnexion" title="Déconnexion" [innerHTML]="icon('logout')"></button>
+      </div>
+    </header>
+    @if (!api.online()) {
+      <div class="adm-offline" role="alert">
+        Connexion au serveur interrompue. Les données affichées peuvent être anciennes et les ventes sont suspendues jusqu'au retour de la connexion.
+        <button class="a-btn ghost sm" (click)="retry()">Réessayer</button>
+      </div>
+    }
+    <main class="adm-content" id="adm-main" tabindex="-1">
+      <router-outlet />
+    </main>
+  </div>
+
+  <!-- ── Toasts ── -->
+  <div class="a-toast-stack" role="status" aria-live="polite">
+    @for (toast of toasts(); track toast.id) {
+      <div [class]="'a-toast ' + toast.type">
+        <span [innerHTML]="toastIcon(toast.type)"></span>
+        {{ toast.message }}
+      </div>
+    }
+  </div>
+</div>

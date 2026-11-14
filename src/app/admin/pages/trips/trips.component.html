@@ -1,0 +1,505 @@
+<div class="a-fade">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+    <div>
+      <div style="font-size:18px;font-weight:700;color:var(--a-tx1);letter-spacing:-.4px">Voyages</div>
+      <div class="a-mono" style="font-size:11px;color:var(--a-tx3);margin-top:3px">
+        {{ tripsSvc.stats().scheduled }} prévus · {{ tripsSvc.stats().total }} au total
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <!-- Bascule vue -->
+      <div style="display:flex;border:1px solid var(--a-border);border-radius:8px;overflow:hidden">
+        <button (click)="viewMode.set('calendar')"
+                [style]="viewMode() === 'calendar' ? 'background:var(--a-cyan2);color:#000;padding:6px 12px;border:none;cursor:pointer;font-size:11px;font-weight:600'
+                                                    : 'background:transparent;color:var(--a-tx2);padding:6px 12px;border:none;cursor:pointer;font-size:11px'">
+          📅 Calendrier
+        </button>
+        <button (click)="viewMode.set('list')"
+                [style]="viewMode() === 'list' ? 'background:var(--a-cyan2);color:#000;padding:6px 12px;border:none;cursor:pointer;font-size:11px;font-weight:600'
+                                               : 'background:transparent;color:var(--a-tx2);padding:6px 12px;border:none;cursor:pointer;font-size:11px'">
+          ☰ Liste
+        </button>
+      </div>
+      @if (auth.can('canManageRoutes')) {
+        <button class="a-btn primary sm" (click)="openAdd()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          Nouveau voyage
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:18px">
+    <adm-stat label="Prévus" [value]="tripsSvc.stats().scheduled" sub="voyages actifs" color="a-cyan" />
+    <adm-stat label="Quotidiens" [value]="tripsSvc.stats().daily" sub="tous les jours" color="a-green" />
+    <adm-stat label="Hebdomadaires" [value]="tripsSvc.stats().weekly" sub="récurrents" color="a-blue" />
+    <adm-stat label="Ponctuels" [value]="tripsSvc.stats().once" sub="dates précises" color="a-amber" />
+    <adm-stat label="Annulés" [value]="tripsSvc.stats().cancelled" sub="au total" color="a-red" />
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       VUE CALENDRIER
+  ══════════════════════════════════════════════════════ -->
+  @if (viewMode() === 'calendar') {
+
+    <!-- Navigation semaine -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="a-btn ghost sm" (click)="prevWeek()">← Semaine préc.</button>
+      <button class="a-btn ghost sm" (click)="goToday()">Aujourd'hui</button>
+      <button class="a-btn ghost sm" (click)="nextWeek()">Semaine suiv. →</button>
+      <span style="font-size:12px;color:var(--a-tx2);margin-left:4px">
+        {{ weekDays()[0].date }} — {{ weekDays()[6].date }}
+      </span>
+    </div>
+
+    <!-- Grille 7 jours -->
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:16px">
+      @for (day of weekDays(); track day.date) {
+        <div (click)="selectDate(day.date)"
+             [style]="'border-radius:10px;padding:8px 6px;cursor:pointer;transition:all .15s;border:2px solid;' +
+               (selectedDate() === day.date
+                 ? 'border-color:var(--a-cyan);background:rgba(6,182,212,.08)'
+                 : day.isToday
+                   ? 'border-color:var(--a-cyan2);background:var(--a-bg3)'
+                   : 'border-color:var(--a-border);background:var(--a-bg2)')">
+          <!-- Entête jour -->
+          <div style="text-align:center;margin-bottom:6px">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.5px"
+                 [style.color]="day.isToday ? 'var(--a-cyan)' : 'var(--a-tx3)'">
+              {{ day.label.split(' ')[0] }}
+            </div>
+            <div style="font-size:16px;font-weight:700;line-height:1.2"
+                 [style.color]="day.isToday ? 'var(--a-cyan)' : 'var(--a-tx1)'">
+              {{ day.label.split(' ')[1] }}
+            </div>
+          </div>
+
+          <!-- Voyages du jour (compacts) -->
+          <div style="display:flex;flex-direction:column;gap:3px;min-height:32px">
+            @for (t of day.trips.slice(0,4); track t.id) {
+              <div [style]="'background:' + statusColor(t.status) + '22;border-left:2px solid ' + statusColor(t.status) + ';padding:2px 4px;border-radius:0 3px 3px 0;font-size:8.5px;font-family:IBM Plex Mono,monospace;color:var(--a-tx1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis'"
+                   [title]="t.from + ' → ' + t.to + ' ' + t.departure">
+                {{ t.departure }} {{ busIcon(t.busId) }} {{ t.to }}
+              </div>
+            }
+            @if (day.trips.length > 4) {
+              <div style="font-size:8px;color:var(--a-tx3);text-align:center">+{{ day.trips.length - 4 }} autres</div>
+            }
+            @if (day.trips.length === 0) {
+              <div style="font-size:8px;color:var(--a-tx3);text-align:center;padding-top:4px">—</div>
+            }
+          </div>
+
+          <!-- Badge count -->
+          @if (day.trips.length > 0) {
+            <div style="margin-top:5px;text-align:center">
+              <span [style]="'font-size:8px;font-weight:700;padding:1px 6px;border-radius:8px;background:' + (selectedDate()===day.date ? 'var(--a-cyan)' : 'var(--a-bg4)') + ';color:' + (selectedDate()===day.date ? '#000' : 'var(--a-tx2)')">
+                {{ day.trips.length }}
+              </span>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Détail du jour sélectionné -->
+    <div class="a-card" style="padding:0;overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px 10px;border-bottom:1px solid var(--a-border)">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--a-tx1)">
+            {{ fmtDay(selectedDate()) }}
+          </div>
+          <div class="a-mono" style="font-size:10px;color:var(--a-tx3);margin-top:2px">
+            {{ selectedTrips().length }} voyage(s) programmé(s)
+          </div>
+        </div>
+        @if (auth.can('canManageRoutes')) {
+          <button class="a-btn ghost sm" style="font-size:10px" (click)="openAdd(selectedDate())">
+            + Ajouter pour ce jour
+          </button>
+        }
+      </div>
+
+      @if (selectedTrips().length === 0) {
+        <div style="padding:30px;text-align:center;color:var(--a-tx3);font-size:12px">
+          Aucun voyage programmé pour cette date.
+        </div>
+      } @else {
+        <div class="a-table-wrap">
+          <table class="a-table">
+            <thead><tr>
+              <th>Départ</th><th>Trajet</th><th>Véhicule</th><th>Durée</th>
+              <th>Prix</th><th>Récurrence</th><th>Statut</th>
+              @if (auth.can('canManageRoutes')) { <th>Actions</th> }
+            </tr></thead>
+            <tbody>
+              @for (t of selectedTrips(); track t.id) {
+                <tr [style.background]="tripConflictMsg(t, selectedDate()) ? 'rgba(239,68,68,.05)' : ''"
+                    [style.border-left]="tripConflictMsg(t, selectedDate()) ? '3px solid var(--a-red)' : ''"
+                    [title]="tripConflictMsg(t, selectedDate()) ?? ''">
+                  <td class="a-mono" style="font-weight:700"
+                      [style.color]="tripConflictMsg(t, selectedDate()) ? 'var(--a-red)' : 'var(--a-cyan)'">
+                    {{ t.departure }}
+                    @if (tripConflictMsg(t, selectedDate())) {
+                      <span style="display:block;font-size:8px;font-weight:600;color:var(--a-red)">⚠ Conflit</span>
+                    }
+                  </td>
+                  <td>
+                    <div style="font-size:12px;font-weight:600;color:var(--a-tx1)">{{ t.from }} → {{ t.to }}</div>
+                    @if (t.notes) { <div style="font-size:10px;color:var(--a-tx3)">{{ t.notes }}</div> }
+                  </td>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:5px">
+                      <span style="font-size:14px">{{ busIcon(t.busId) }}</span>
+                      <div>
+                        <div style="font-size:11px;font-weight:600;color:var(--a-tx1)">{{ busName(t.busId) }}</div>
+                        <div style="font-size:9px;color:var(--a-tx3)">Arr. {{ t.arrival }}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="a-mono" style="font-size:11px">{{ tripsSvc.formatDuration(t.departure, t.arrival) }}</td>
+                  <td class="a-mono" style="color:var(--a-amber);font-weight:700;font-size:11px">{{ t.price | ariary }}</td>
+                  <td>
+                    <span style="font-size:10px;background:var(--a-bg3);padding:2px 7px;border-radius:5px;color:var(--a-tx2)">
+                      {{ tripsSvc.recurrenceLabel(t.recurrence) }}
+                    </span>
+                  </td>
+                  <td>
+                    <span [style]="'font-size:9px;padding:2px 7px;border-radius:10px;font-weight:700;background:' + statusColor(t.status) + '22;color:' + statusColor(t.status)">
+                      {{ statusLabel(t.status) }}
+                    </span>
+                  </td>
+                  @if (auth.can('canManageRoutes')) {
+                    <td>
+                      <div style="display:flex;gap:4px">
+                        <button class="a-btn ghost sm" (click)="openEdit(t)">✏️</button>
+                        @if (t.status === 'scheduled') {
+                          <button class="a-btn danger sm" (click)="openCancel(t)">✕</button>
+                        }
+                      </div>
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ══════════════════════════════════════════════════════
+       VUE LISTE
+  ══════════════════════════════════════════════════════ -->
+  @if (viewMode() === 'list') {
+    <!-- Filtres -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="position:relative;width:220px">
+        <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--a-tx3);pointer-events:none"
+             xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="a-input" style="padding-left:32px" placeholder="Trajet, notes…"
+               [ngModel]="search()" (ngModelChange)="search.set($event)" />
+      </div>
+      <select class="a-input" style="width:180px" [ngModel]="filterBus()" (ngModelChange)="filterBus.set($event)">
+        <option value="all">Tous les véhicules</option>
+        @for (b of fleetSvc.buses(); track b.id) {
+          <option [value]="b.id">{{ b.name }}</option>
+        }
+      </select>
+      <select class="a-input" style="width:200px" [ngModel]="filterRoute()" (ngModelChange)="filterRoute.set($event)">
+        <option value="all">Tous les itinéraires</option>
+        @for (r of routesSvc.routes(); track r.id) {
+          <option [value]="r.id">{{ r.from }} → {{ r.to }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="a-card" style="padding:0;overflow:hidden">
+      <div class="a-table-wrap">
+        <table class="a-table">
+          <thead><tr>
+            <th>Départ</th><th>Trajet</th><th>Véhicule</th><th>Récurrence</th>
+            <th>Jours</th><th>Période</th><th>Prix</th><th>Statut</th>
+            @if (auth.can('canManageRoutes')) { <th>Actions</th> }
+          </tr></thead>
+          <tbody>
+            @for (t of filteredTrips().slice(0,80); track t.id) {
+              <tr [style.background]="tripConflictMsg(t) ? 'rgba(239,68,68,.05)' : ''"
+                  [style.border-left]="tripConflictMsg(t) ? '3px solid var(--a-red)' : ''"
+                  [title]="tripConflictMsg(t) ?? ''">
+                <td class="a-mono" style="font-weight:700"
+                    [style.color]="tripConflictMsg(t) ? 'var(--a-red)' : 'var(--a-cyan)'">
+                  {{ t.departure }}
+                  @if (tripConflictMsg(t)) {
+                    <span style="display:block;font-size:8px;font-weight:600;color:var(--a-red)">⚠ Conflit</span>
+                  }
+                  <div style="font-size:9px;color:var(--a-tx3)">→ {{ t.arrival }}</div>
+                </td>
+                <td>
+                  <div style="font-size:12px;font-weight:600;color:var(--a-tx1)">{{ t.from }} → {{ t.to }}</div>
+                  @if (t.notes) { <div style="font-size:10px;color:var(--a-tx3)">{{ t.notes }}</div> }
+                </td>
+                <td>
+                  <span style="font-size:14px">{{ busIcon(t.busId) }}</span>
+                  <span style="font-size:11px;color:var(--a-tx1);margin-left:4px">{{ busName(t.busId) }}</span>
+                </td>
+                <td>
+                  <span style="font-size:10px;background:var(--a-bg3);padding:2px 7px;border-radius:5px">
+                    {{ tripsSvc.recurrenceLabel(t.recurrence) }}
+                  </span>
+                </td>
+                <td>
+                  @if (t.recurrence === 'once') {
+                    <span class="a-mono" style="font-size:10px;color:var(--a-amber)">{{ t.specificDate }}</span>
+                  } @else if (t.recurrence === 'daily') {
+                    <span style="font-size:10px;color:var(--a-green)">Tous les jours</span>
+                  } @else if (t.recurrence === 'weekdays') {
+                    <span style="font-size:10px">Lun → Ven</span>
+                  } @else if (t.recurrence === 'weekends') {
+                    <span style="font-size:10px">Sam + Dim</span>
+                  } @else {
+                    <div style="display:flex;gap:2px;flex-wrap:wrap">
+                      @for (d of [0,1,2,3,4,5,6]; track d) {
+                        <span [style]="'font-size:9px;padding:1px 4px;border-radius:3px;font-weight:' + (t.days.includes(d) ? '700' : '400') + ';background:' + (t.days.includes(d) ? 'rgba(6,182,212,.15)' : 'var(--a-bg3)') + ';color:' + (t.days.includes(d) ? 'var(--a-cyan)' : 'var(--a-tx3)')">
+                          {{ DAYS[d] }}
+                        </span>
+                      }
+                    </div>
+                  }
+                </td>
+                <td class="a-mono" style="font-size:10px;color:var(--a-tx2)">
+                  {{ t.startDate }}
+                  @if (t.endDate) { <div>→ {{ t.endDate }}</div> }
+                  @else { <div style="color:var(--a-tx3)">Sans fin</div> }
+                </td>
+                <td class="a-mono" style="color:var(--a-amber);font-size:11px;font-weight:700">{{ t.price | ariary }}</td>
+                <td>
+                  <span [style]="'font-size:9px;padding:2px 7px;border-radius:10px;font-weight:700;background:' + statusColor(t.status) + '22;color:' + statusColor(t.status)">
+                    {{ statusLabel(t.status) }}
+                  </span>
+                  @if (t.cancelReason) {
+                    <div style="font-size:9px;color:var(--a-tx3);margin-top:2px">{{ t.cancelReason }}</div>
+                  }
+                </td>
+                @if (auth.can('canManageRoutes')) {
+                  <td>
+                    <div style="display:flex;gap:4px">
+                      <button class="a-btn ghost sm" (click)="openEdit(t)">✏️</button>
+                      @if (t.status === 'scheduled') {
+                        <button class="a-btn danger sm" (click)="openCancel(t)">⏸</button>
+                      }
+                      <button class="a-btn danger sm" (click)="openDelete(t)">✕</button>
+                    </div>
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     Modal Créer / Modifier
+════════════════════════════════════════════════════════════ -->
+@if (modal() === 'add' || modal() === 'edit') {
+  <div class="a-modal-overlay" (click)="closeModal()">
+    <div class="a-modal" style="max-width:600px;max-height:90vh;overflow-y:auto" (click)="$event.stopPropagation()">
+      <div style="font-size:16px;font-weight:700;color:var(--a-tx1);margin-bottom:18px">
+        {{ modal() === 'add' ? 'Nouveau voyage' : 'Modifier le voyage' }}
+      </div>
+
+      <!-- Itinéraire -->
+      <div style="margin-bottom:12px">
+        <label class="a-form-label">Itinéraire *</label>
+        <select class="a-input" [ngModel]="fRouteId()" (ngModelChange)="fRouteId.set($event)">
+          <option value="">-- Sélectionner --</option>
+          @for (r of activeRoutes(); track r.id) {
+            <option [value]="r.id">{{ r.from }} → {{ r.to }}</option>
+          }
+        </select>
+      </div>
+
+      <!-- Véhicule -->
+      <div style="margin-bottom:12px">
+        <label class="a-form-label">Véhicule *
+          @if (formRoute()) {
+            <span style="font-weight:400;color:var(--a-tx3);font-size:10px;margin-left:6px">
+              Véhicules assignés à cet itinéraire
+            </span>
+          }
+        </label>
+        <div style="display:flex;flex-wrap:wrap;gap:7px">
+          @for (b of availableBuses(); track b.id) {
+            <button type="button"
+                    (click)="fBusId.set(b.id)"
+                    [class]="'a-btn sm ' + (fBusId() === b.id ? 'primary' : 'ghost')">
+              {{ b.vehicleLayout === 'minibus16' ? '🚐' : b.vehicleLayout === 'minibus10' ? '⭐' : '🚌' }}
+              {{ b.name }}
+            </button>
+          }
+          @if (availableBuses().length === 0) {
+            <span style="font-size:11px;color:var(--a-tx3)">Aucun véhicule actif assigné à cet itinéraire</span>
+          }
+        </div>
+      </div>
+
+      <!-- Heure départ + arrivée calculée -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label class="a-form-label">Heure de départ *</label>
+          <input class="a-input" type="time" [ngModel]="fDeparture()" (ngModelChange)="fDeparture.set($event)" />
+        </div>
+        <div>
+          <label class="a-form-label">Arrivée (calculée)</label>
+          <div class="a-input" style="background:var(--a-bg3);color:var(--a-tx2);display:flex;align-items:center;gap:6px">
+            @if (formArrival()) {
+              <span class="a-mono" style="color:var(--a-cyan);font-weight:700">{{ formArrival() }}</span>
+              <span style="font-size:10px;color:var(--a-tx3)">({{ tripsSvc.formatDuration(fDeparture(), formArrival()) }})</span>
+            } @else {
+              <span style="font-size:11px;color:var(--a-tx3)">Sélectionnez itinéraire + véhicule</span>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Alerte conflit détaillée -->
+      @if (conflictInfo(); as ci) {
+        <div style="margin-bottom:12px;padding:12px 14px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.35);border-radius:10px">
+          <div style="display:flex;align-items:flex-start;gap:9px">
+            <span style="font-size:16px;flex-shrink:0;margin-top:1px">
+              {{ ci.type === 'same_time' ? '🚫' : '⏳' }}
+            </span>
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--a-red);margin-bottom:4px">
+                {{ ci.type === 'same_time' ? 'Départ simultané impossible' : 'Véhicule non disponible' }}
+              </div>
+              <div style="font-size:11px;color:var(--a-red);line-height:1.5;opacity:.9">{{ ci.message }}</div>
+              <div style="margin-top:6px;font-size:10px;color:var(--a-tx3)">
+                Conflit avec :
+                <span class="a-mono" style="color:var(--a-amber);font-weight:700">{{ ci.conflictingTrip.departure }}–{{ ci.conflictingTrip.arrival }}</span>
+                {{ ci.conflictingTrip.from }} → {{ ci.conflictingTrip.to }}
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Récurrence -->
+      <div style="margin-bottom:12px">
+        <label class="a-form-label">Récurrence *</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          @for (opt of [['once','📌 Ponctuel'],['daily','🔁 Quotidien'],['weekdays','🏢 Lun-Ven'],['weekends','🌴 Week-end'],['weekly','📅 Hebdo. (jours)'],['custom','⚙ Personnalisé']] ; track opt[0]) {
+            <button type="button"
+                    (click)="fRecurrence.set(opt[0] === 'once' ? 'once' : opt[0] === 'daily' ? 'daily' : opt[0] === 'weekdays' ? 'weekdays' : opt[0] === 'weekends' ? 'weekends' : opt[0] === 'weekly' ? 'weekly' : 'custom')"
+                    [class]="'a-btn sm ' + (fRecurrence() === opt[0] ? 'primary' : 'ghost')">
+              {{ opt[1] }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Jours (hebdo/custom) -->
+      @if (fRecurrence() === 'weekly' || fRecurrence() === 'custom') {
+        <div style="margin-bottom:12px">
+          <label class="a-form-label">Jours *</label>
+          <div style="display:flex;gap:6px">
+            @for (d of [0,1,2,3,4,5,6]; track d) {
+              <button type="button" (click)="toggleDay(d)"
+                      [class]="'a-btn sm ' + (fDays().includes(d) ? 'primary' : 'ghost')"
+                      style="min-width:36px;justify-content:center">
+                {{ DAYS[d] }}
+              </button>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Date ponctuelle ou période -->
+      @if (fRecurrence() === 'once') {
+        <div style="margin-bottom:12px">
+          <label class="a-form-label">Date du voyage *</label>
+          <input class="a-input" type="date" [ngModel]="fSpecificDate()" (ngModelChange)="fSpecificDate.set($event)" />
+        </div>
+      } @else {
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div>
+            <label class="a-form-label">Début *</label>
+            <input class="a-input" type="date" [ngModel]="fStartDate()" (ngModelChange)="fStartDate.set($event)" />
+          </div>
+          <div>
+            <label class="a-form-label">Fin <span style="font-weight:400;color:var(--a-tx3);font-size:10px">(vide = sans fin)</span></label>
+            <input class="a-input" type="date" [ngModel]="fEndDate()" (ngModelChange)="fEndDate.set($event)" />
+          </div>
+        </div>
+      }
+
+      <!-- Prix + notes -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label class="a-form-label">Prix (Ar)
+            @if (formRoute()) {
+              <span style="font-weight:400;color:var(--a-tx3);font-size:10px;margin-left:4px">
+                base: {{ formRoute()!.basePrice | money }}
+              </span>
+            }
+          </label>
+          <input class="a-input" type="number" min="0" step="500" [ngModel]="fPrice()" (ngModelChange)="fPrice.set(+$event)"
+                 [placeholder]="formRoute()?.basePrice?.toString() ?? '0'" />
+        </div>
+        <div>
+          <label class="a-form-label">Notes internes</label>
+          <input class="a-input" [ngModel]="fNotes()" (ngModelChange)="fNotes.set($event)" placeholder="Remarques…" />
+        </div>
+      </div>
+
+      <div class="a-modal-footer">
+        <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+        <button class="a-btn primary sm" (click)="submit()" [disabled]="hasConflict()">
+          {{ modal() === 'add' ? 'Créer le voyage' : 'Enregistrer' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ══ Modal Annulation ═══════════════════════════════════════════ -->
+@if (modal() === 'cancel' && modalTrip(); as t) {
+  <div class="a-modal-overlay" (click)="closeModal()">
+    <div class="a-modal" (click)="$event.stopPropagation()">
+      <div style="font-size:15px;font-weight:700;color:var(--a-tx1);margin-bottom:6px">Annuler ce voyage ?</div>
+      <div style="font-size:12px;color:var(--a-tx2);margin-bottom:14px">
+        {{ t.from }} → {{ t.to }} · {{ t.departure }} · {{ tripsSvc.recurrenceLabel(t.recurrence) }}
+      </div>
+      <label class="a-form-label">Raison (optionnel)</label>
+      <input class="a-input" [(ngModel)]="cancelReason" placeholder="Ex : Incident technique, route impraticable…" style="margin-bottom:16px" />
+      <div class="a-modal-footer">
+        <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+        <button class="a-btn danger sm" (click)="confirmCancel()">Confirmer l'annulation</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ══ Modal Suppression ══════════════════════════════════════════ -->
+@if (modal() === 'delete' && modalTrip(); as t) {
+  <div class="a-modal-overlay" (click)="closeModal()">
+    <div class="a-modal" (click)="$event.stopPropagation()">
+      <div style="font-size:15px;font-weight:700;color:var(--a-tx1);margin-bottom:8px">Supprimer ce voyage ?</div>
+      <div style="font-size:12px;color:var(--a-tx2);margin-bottom:20px">
+        {{ t.from }} → {{ t.to }} · {{ t.departure }} · {{ tripsSvc.recurrenceLabel(t.recurrence) }}
+      </div>
+      <div class="a-modal-footer">
+        <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+        <button class="a-btn danger sm" (click)="confirmDelete()">Supprimer définitivement</button>
+      </div>
+    </div>
+  </div>
+}

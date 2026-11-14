@@ -9,177 +9,195 @@
     {{ i18n.t().busList.backBtn }}
   </button>
 
-  <!-- Résumé trajet -->
-  @if (searchParams()) {
+  <!-- Résumé -->
+  @if (searchParams(); as sp) {
     <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
       <div class="flex flex-wrap gap-6 items-center justify-between">
-        <div class="flex items-center gap-6">
+        <div class="flex flex-wrap gap-6">
           <div>
-            <p class="text-xs text-blue-600 font-medium uppercase tracking-wide">{{ i18n.t().busList.route }}</p>
-            <p class="font-bold text-slate-900">{{ searchParams()!.from }} → {{ searchParams()!.to }}</p>
+            <p class="text-xs text-blue-500 font-medium uppercase tracking-wide">Trajet</p>
+            <p class="font-bold text-slate-900">{{ sp.from }} → {{ sp.to }}</p>
           </div>
           <div>
-            <p class="text-xs text-blue-600 font-medium uppercase tracking-wide">{{ i18n.t().busList.date }}</p>
-            <p class="font-bold text-slate-900">{{ searchParams()!.date }}</p>
+            <p class="text-xs text-blue-500 font-medium uppercase tracking-wide">Date</p>
+            <p class="font-bold text-slate-900">{{ sp.date | appDate }}</p>
           </div>
           <div>
-            <p class="text-xs text-blue-600 font-medium uppercase tracking-wide">{{ i18n.t().busList.passengers }}</p>
-            <p class="font-bold text-slate-900">{{ searchParams()!.passengers }}</p>
+            <p class="text-xs text-blue-500 font-medium uppercase tracking-wide">Passagers</p>
+            <p class="font-bold text-slate-900">{{ sp.passengers }}</p>
           </div>
         </div>
-        <button (click)="goBack()"
-                class="px-4 py-2 border border-blue-300 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors">
-          {{ i18n.t().busList.modify }}
-        </button>
+        <span class="text-sm text-blue-700 font-medium">{{ filteredSlots().length }} résultat(s)</span>
       </div>
     </div>
   }
 
-  <!-- ── Filtres ──────────────────────────────────────────────────────── -->
-  <div class="space-y-3">
-
-    <!-- Filtre par type de véhicule -->
-    <div class="flex flex-wrap gap-2">
-      @for (tf of typeFilters; track tf.value) {
-        <button (click)="setTypeFilter(tf.value)"
-                [class]="typeFilter() === tf.value
-                  ? 'flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold ' +
-                    (tf.value === 'bus'       ? 'bg-blue-600 text-white' :
-                     tf.value === 'minibus16' ? 'bg-emerald-600 text-white' :
-                     tf.value === 'minibus10' ? 'bg-violet-600 text-white' :
-                                               'bg-slate-700 text-white')
-                  : 'flex items-center gap-1.5 px-3 py-2 border border-slate-200 text-slate-700 bg-white rounded-xl text-sm font-medium hover:border-slate-300 transition-colors'">
-          <span>{{ tf.emoji }}</span>
-          <span>{{ tf.label }}</span>
-        </button>
-      }
+  @if (loading()) {
+    <div class="space-y-3" aria-busy="true" [attr.aria-label]="i18n.t().x.loading">
+      @for (i of [1, 2, 3]; track i) { <div class="h-36 rounded-2xl bg-slate-100 animate-pulse"></div> }
     </div>
+  }
+  <!-- ── États d'indisponibilité ─────────────────────────────────────────── -->
+  @if (!loading() && availability(); as av) {
+    @if (av.status === 'error') {
+      <div class="bg-slate-50 border border-slate-200 rounded-2xl p-10 text-center" role="alert">
+        <div class="text-5xl mb-4">📡</div>
+        <p class="text-slate-700 text-sm max-w-sm mx-auto">{{ i18n.t().x.searchError }}</p>
+        <button (click)="load()" class="mt-6 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors">{{ i18n.t().x.retry }}</button>
+      </div>
+    }
 
-    <!-- Filtre par tri -->
-    <div class="flex gap-2">
-      @for (sf of sortFilters; track sf.value) {
-        <button (click)="setSortFilter(sf.value)"
-                [class]="sortFilter() === sf.value
-                  ? 'px-4 py-1.5 bg-slate-800 text-white rounded-lg text-sm font-medium'
-                  : 'px-4 py-1.5 border border-slate-200 text-slate-600 bg-white rounded-lg text-sm hover:border-slate-300 transition-colors'">
-          {{ sf.label }}
+    @if (av.status === 'suspended') {
+      <div class="bg-amber-50 border border-amber-200 rounded-2xl p-10 text-center">
+        <div class="text-5xl mb-4">⚠️</div>
+        <h3 class="font-bold text-amber-900 text-xl mb-2">Trajet temporairement suspendu</h3>
+        @if (av.reason) { <p class="text-amber-700 text-sm mb-2">{{ av.reason }}</p> }
+        @if (av.until) {
+          <p class="text-amber-600 text-sm font-semibold">{{ i18n.t().x.resumeOn }} <strong>{{ av.until | appDate }}</strong></p>
+        } @else {
+          <p class="text-amber-600 text-sm">Durée de suspension indéterminée.</p>
+        }
+        <button (click)="goBack()" class="mt-6 px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold transition-colors">
+          Chercher un autre trajet
         </button>
-      }
-    </div>
+      </div>
+    }
 
-  </div>
+    @if (av.status === 'not_found') {
+      <div class="bg-slate-50 border border-slate-200 rounded-2xl p-10 text-center">
+        <div class="text-5xl mb-4">🔍</div>
+        <h3 class="font-bold text-slate-800 text-xl mb-2">Itinéraire non disponible</h3>
+        <p class="text-slate-500 text-sm">Nous ne desservons pas encore ce trajet.</p>
+        <button (click)="goBack()" class="mt-6 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors">
+          Modifier la recherche
+        </button>
+      </div>
+    }
 
-  <p class="text-sm text-slate-500">{{ i18n.t().busList.available(filteredBuses().length) }}</p>
+    @if (av.status === 'no_vehicles') {
+      <div class="bg-red-50 border border-red-200 rounded-2xl p-10 text-center">
+        <div class="text-5xl mb-4">🚫</div>
+        <h3 class="font-bold text-red-800 text-lg mb-2 max-w-md mx-auto">{{ noVehiclesMessage(av) }}</h3>
+        <button (click)="goBack()" class="mt-6 px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-colors">
+          Essayer une autre date
+        </button>
+      </div>
+    }
 
-  <!-- ── Liste des véhicules ───────────────────────────────────────────── -->
-  <div class="space-y-4">
-    @for (bus of filteredBuses(); track bus.id) {
-      <div [class]="'bg-white rounded-2xl border hover:shadow-lg transition-all duration-300 overflow-hidden ' +
-                    (bus.vehicleLayout === 'minibus10' ? 'border-violet-200 hover:border-violet-300' :
-                     bus.vehicleLayout === 'minibus16' ? 'border-emerald-200 hover:border-emerald-300' :
-                                                         'border-slate-200 hover:border-blue-200')">
-        <div class="p-6">
-          <div class="flex flex-col lg:flex-row gap-6">
-
-            <!-- Info véhicule -->
-            <div class="flex-1 space-y-4">
-              <div class="flex items-start justify-between">
-                <div>
-                  <div class="flex items-center gap-2 mb-1">
-                    <!-- Badge type -->
-                    <span [class]="'inline-flex items-center gap-1 px-2.5 py-1 border rounded-full text-xs font-semibold ' + getLayoutBadgeClass(bus.vehicleLayout)">
-                      {{ getLayoutEmoji(bus.vehicleLayout) }} {{ bus.type }}
-                    </span>
-                    <!-- Badge capacité -->
-                    <span class="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-xs">
-                      {{ bus.capacity }} {{ i18n.t().seats.places }}
-                    </span>
-                  </div>
-                  <h3 class="font-bold text-lg text-slate-900 font-display">{{ bus.name }}</h3>
-                </div>
-                <div class="flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-lg">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                       fill="#f59e0b" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                  </svg>
-                  <span class="font-semibold text-sm text-amber-700">{{ bus.rating }}</span>
-                </div>
-              </div>
-
-              <!-- Horaires -->
-              <div class="flex items-center gap-4">
-                <div>
-                  <p class="text-2xl font-bold text-slate-900">{{ bus.departure }}</p>
-                  <p class="text-xs text-slate-500">{{ searchParams()?.from }}</p>
-                </div>
-                <div class="flex-1 flex items-center gap-2">
-                  <div class="h-px bg-slate-200 flex-1"></div>
-                  <span class="flex items-center gap-1 text-xs text-slate-500 bg-slate-50 px-2 py-1 rounded-full whitespace-nowrap">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                    {{ bus.duration }}
-                  </span>
-                  <div class="h-px bg-slate-200 flex-1"></div>
-                </div>
-                <div class="text-right">
-                  <p class="text-2xl font-bold text-slate-900">{{ bus.arrival }}</p>
-                  <p class="text-xs text-slate-500">{{ searchParams()?.to }}</p>
-                </div>
-              </div>
-
-              <!-- Équipements -->
-              <div class="flex flex-wrap gap-2">
-                @for (amenity of bus.amenities.slice(0, 4); track amenity) {
-                  <span [class]="'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium capitalize ' +
-                    (bus.vehicleLayout === 'minibus10' ? 'bg-violet-50 text-violet-700' : 'bg-blue-50 text-blue-700')">
-                    {{ getAmenityEmoji(amenity) }} {{ amenity }}
-                  </span>
-                }
-                @if (bus.amenities.length > 4) {
-                  <span class="px-2.5 py-1 border border-slate-200 text-slate-500 rounded-full text-xs">
-                    {{ i18n.t().busList.more(bus.amenities.length - 4) }}
-                  </span>
-                }
-              </div>
-
-              <p class="text-xs text-slate-500">{{ i18n.t().busList.seatsLeft(bus.seatsAvailable) }}</p>
-            </div>
-
-            <!-- Prix + CTA -->
-            <div class="lg:w-48 flex lg:flex-col items-center lg:items-end justify-between lg:justify-start gap-4">
-              <div class="text-right">
-                <p class="text-xs text-slate-500">{{ i18n.t().busList.fromPrice }}</p>
-                <p class="text-3xl font-bold text-slate-900 font-display">{{ bus.price | number }} Ar</p>
-                <p class="text-xs text-slate-500">{{ i18n.t().busList.perPerson }}</p>
-              </div>
-              <button (click)="selectBus(bus)"
-                      [class]="'font-semibold px-6 py-2.5 rounded-xl transition-all duration-200 text-sm whitespace-nowrap text-white ' +
-                        (bus.vehicleLayout === 'minibus10' ? 'bg-violet-600 hover:bg-violet-700' :
-                         bus.vehicleLayout === 'minibus16' ? 'bg-emerald-600 hover:bg-emerald-700' :
-                                                             'bg-blue-600 hover:bg-blue-700')">
-                {{ i18n.t().busList.chooseSeats }}
-              </button>
-            </div>
-
-          </div>
+    @if (av.status === 'available') {
+      <!-- Filtres -->
+      <div class="flex flex-wrap gap-2 items-center justify-between">
+        <div class="flex flex-wrap gap-2">
+          @for (f of typeFilters; track f.value) {
+            <button (click)="setTypeFilter(f.value)"
+                    [class]="typeFilter() === f.value
+                      ? 'px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600 text-white shadow-sm'
+                      : 'px-3 py-1.5 rounded-lg text-sm font-medium bg-white border border-slate-200 text-slate-600 hover:border-blue-300 transition-colors'">
+              {{ f.emoji }} {{ f.label }}
+            </button>
+          }
         </div>
+        <div class="flex gap-2">
+          @for (f of sortFilters; track f.value) {
+            <button (click)="setSortFilter(f.value)"
+                    [class]="sortFilter() === f.value
+                      ? 'px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-white'
+                      : 'px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-500 hover:border-slate-400 transition-colors'">
+              {{ f.label }}
+            </button>
+          }
+        </div>
+      </div>
 
-        <!-- Bande décorative VIP -->
-        @if (bus.vehicleLayout === 'minibus10') {
-          <div class="bg-gradient-to-r from-violet-500 to-purple-600 h-1"></div>
+      <!-- Liste -->
+      <div class="space-y-3">
+        @for (slot of filteredSlots(); track slot.tripId) {
+          <div class="bg-white rounded-2xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all overflow-hidden">
+            <div class="p-5">
+              <div class="flex flex-wrap gap-4 items-start justify-between mb-4">
+
+                <!-- Bus info -->
+                <div class="flex items-center gap-3">
+                  <div class="text-3xl leading-none">{{ getLayoutEmoji(slot.vehicleLayout) }}</div>
+                  <div>
+                    <div class="font-bold text-slate-900">{{ slot.busName }}</div>
+                    <div class="flex items-center gap-2 mt-0.5">
+                      <span class="px-2 py-0.5 text-xs rounded-full border font-medium" [class]="getLayoutBadge(slot.vehicleLayout)">
+                        {{ slot.busType }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Horaires -->
+                <div class="flex items-center gap-3">
+                  <div class="text-center">
+                    <div class="text-2xl font-bold text-slate-900 tabular-nums">{{ slot.departure }}</div>
+                    <div class="text-xs text-slate-400">Départ</div>
+                  </div>
+                  <div class="flex flex-col items-center gap-0.5 px-2">
+                    <div class="text-xs text-slate-400">{{ slot.duration }}</div>
+                    <div class="flex items-center gap-0.5">
+                      <div class="w-1.5 h-1.5 rounded-full border-2 border-slate-300"></div>
+                      <div class="w-14 h-px bg-slate-300"></div>
+                      <div class="w-1.5 h-1.5 rounded-full bg-slate-400"></div>
+                    </div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-2xl font-bold text-slate-900 tabular-nums">{{ slot.arrival }}</div>
+                    <div class="text-xs text-slate-400">Arrivée</div>
+                  </div>
+                </div>
+
+                <!-- Prix + dispo -->
+                <div class="text-right">
+                  <div class="text-2xl font-bold text-blue-600">{{ slot.price | money }}</div>
+                  <div class="text-xs mt-0.5 font-medium" [class]="occupancyText(slot)">
+                    {{ slot.seatsAvailable }} place(s) restante(s) / {{ slot.capacity }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Barre d'occupation -->
+              <div class="mb-4">
+                <div class="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full transition-all duration-500" [class]="occupancyColor(slot)"
+                       [style.width]="occupancyPct(slot) + '%'"></div>
+                </div>
+              </div>
+
+              <!-- Équipements + CTA -->
+              <div class="flex items-center justify-between flex-wrap gap-3">
+                <div class="flex flex-wrap gap-1.5">
+                  @for (a of slot.amenities; track a) {
+                    <span class="px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-xs" title="{{ a }}">
+                      {{ getAmenityEmoji(a) }}
+                    </span>
+                  }
+                </div>
+                <button (click)="selectSlot(slot)"
+                        class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm">
+                  Choisir ce départ →
+                </button>
+              </div>
+            </div>
+
+            <!-- Alerte quasi-complet -->
+            @if (slot.seatsAvailable > 0 && slot.seatsAvailable <= 4) {
+              <div class="px-5 py-2 bg-red-50 border-t border-red-100 text-xs text-red-600 font-semibold flex items-center gap-1.5">
+                🔥 Plus que {{ slot.seatsAvailable }} place(s) — Réservez vite !
+              </div>
+            }
+          </div>
+        }
+
+        @if (filteredSlots().length === 0) {
+          <div class="text-center py-10 text-slate-400 text-sm">
+            Aucun résultat pour ces filtres.
+            <button (click)="setTypeFilter('all')" class="text-blue-600 hover:underline ml-1">Réinitialiser</button>
+          </div>
         }
       </div>
     }
-
-    @if (filteredBuses().length === 0) {
-      <div class="text-center py-16 text-slate-400">
-        <p class="text-4xl mb-3">🔍</p>
-        <p class="font-medium">{{ i18n.t().busList.noResult }}</p>
-      </div>
-    }
-
-  </div>
-
+  }
 </div>

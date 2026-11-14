@@ -38,3 +38,22 @@ Thumbs.db
 
 # Angular cache
 .angular
+
+# Dossiers de travail (hors livraison)
+/_to_delete
+/.transfert
+
+# Backend
+/backend/node_modules
+/backend/dist
+/backend/dist-load
+/backend/coverage
+/backend/uploads
+*.tsbuildinfo
+
+# Documentation : dépendances du générateur
+/docs/documentation/source/node_modules
+
+# Secrets et données locales
+/deploy/.env
+/deploy/backups

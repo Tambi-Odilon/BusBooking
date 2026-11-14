@@ -3,8 +3,9 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { I18nService } from '../../core/services/i18n.service';
 import { SignupData } from '../../core/models/user.models';
+import { AppConfigService } from '../../core/config/app-config.service';
 
-type AuthTab = 'login' | 'signup';
+type AuthTab = 'login' | 'signup' | 'forgot';
 
 @Component({
   selector: 'app-auth-modal',
@@ -16,6 +17,12 @@ type AuthTab = 'login' | 'signup';
 export class AuthModalComponent {
   private authService = inject(AuthService);
   readonly i18n       = inject(I18nService);
+  readonly cfg        = inject(AppConfigService);
+  /** Étape « code de double authentification » après un mot de passe correct. */
+  readonly challenge  = this.authService.twoFactorChallenge;
+  readonly forgotSent = signal(false);
+  twoFactorCode = '';
+  forgotEmail   = '';
 
   // Événement émis vers le parent pour fermer la modal
   readonly closed = output<void>();
@@ -41,10 +48,11 @@ export class AuthModalComponent {
   signupLastName  = '';
   signupPhone     = '';
   signupGender    = '';
-  signupAge       = 0;
 
   setTab(tab: AuthTab): void {
     this.tab.set(tab);
+    this.forgotSent.set(false);
+    if (tab === 'forgot') this.forgotEmail = this.loginEmail;
     this.authService.clearError();
   }
 
@@ -86,9 +94,19 @@ export class AuthModalComponent {
       lastName:  this.signupLastName,
       phone:     this.signupPhone,
       gender:    this.signupGender,
-      age:       this.signupAge,
     };
     const ok = await this.authService.signup(data);
     if (ok) this.close();
+  }
+
+  async submitTwoFactor(): Promise<void> {
+    if (this.twoFactorCode.trim().length < 6 || this.isLoading()) return;
+    if (await this.authService.verifyTwoFactor(this.twoFactorCode)) this.close();
+  }
+
+  async submitForgot(): Promise<void> {
+    if (!this.forgotEmail.trim() || this.isLoading()) return;
+    await this.authService.forgotPassword(this.forgotEmail, this.i18n.lang());
+    this.forgotSent.set(true);
   }
 }

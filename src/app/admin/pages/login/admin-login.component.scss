@@ -1,0 +1,51 @@
+.adm-login-shell {
+  display:grid;grid-template-columns:1fr 1fr;min-height:100vh;
+  @media(max-width:768px){grid-template-columns:1fr;.adm-login-left{display:none}}
+}
+.adm-login-left {
+  background:var(--a-bg1);border-right:1px solid var(--a-border);
+  display:flex;flex-direction:column;justify-content:center;padding:60px;position:relative;overflow:hidden;
+  &::before{content:'';position:absolute;top:-100px;left:-100px;width:400px;height:400px;background:radial-gradient(circle,rgba(6,182,212,.07) 0%,transparent 70%);pointer-events:none}
+}
+.adm-login-grid {
+  position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);
+  background-size:32px 32px;
+}
+.adm-login-right {display:flex;align-items:center;justify-content:center;padding:40px;background:var(--a-bg0)}
+.adm-login-card {width:100%;max-width:400px}
+.adm-login-title {font-size:30px;font-weight:800;color:var(--a-tx1);line-height:1.2;margin:28px 0 10px;letter-spacing:-.8px}
+.adm-login-h2 {font-size:22px;font-weight:700;color:var(--a-tx1);margin-bottom:4px;letter-spacing:-.4px}
+.adm-demo-label {font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--a-tx3);font-family:'IBM Plex Mono',monospace;margin-bottom:8px}
+.adm-demo-grid {display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:22px}
+.adm-demo-pill {
+  padding:9px 11px;border-radius:9px;border:1px solid var(--a-border);background:var(--a-bg2);cursor:pointer;transition:all .15s;text-align:left;display:flex;flex-direction:column;gap:3px;
+  &:hover{border-color:var(--a-border2);background:var(--a-bg3)}
+}
+.adm-demo-role {font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.5px}
+.adm-demo-email {font-size:10px;color:var(--a-tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adm-error-banner {
+  background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:8px;
+  padding:10px 12px;font-size:12px;color:var(--a-red);margin-bottom:14px;display:flex;align-items:center;gap:8px;
+}
+.adm-field-label {display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--a-tx2);margin-bottom:6px;font-family:'IBM Plex Mono',monospace}
+.adm-eye-btn {position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--a-tx3);display:flex;align-items:center;transition:color .15s;&:hover{color:var(--a-tx1)}}
+.adm-submit-btn {
+  width:100%;background:linear-gradient(135deg,var(--a-cyan),var(--a-blue));color:#fff;border:none;border-radius:10px;
+  padding:13px;font-size:13.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+  letter-spacing:-.2px;transition:opacity .15s;font-family:'IBM Plex Sans',sans-serif;
+  &:hover{opacity:.9}&:disabled{opacity:.45;cursor:not-allowed}
+}
+.adm-spinner {
+  width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:admSpin .6s linear infinite;
+}
+@keyframes admSpin{to{transform:rotate(360deg)}}
+.adm-back-site {
+  display:flex;align-items:center;gap:5px;font-size:12px;color:var(--a-tx3);margin-top:18px;
+  text-decoration:none;transition:color .15s;&:hover{color:var(--a-tx1)}
+}
+.adm-logo-mark {
+  width:36px;height:36px;background:linear-gradient(135deg,var(--a-cyan),var(--a-blue));border-radius:9px;
+  display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;
+  font-weight:700;font-size:18px;color:#fff;box-shadow:0 0 20px rgba(6,182,212,.3);flex-shrink:0;
+}

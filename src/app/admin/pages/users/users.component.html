@@ -1,0 +1,313 @@
+<div class="a-fade">
+
+  <!-- En-tête -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+    <div>
+      <div style="font-size:18px;font-weight:700;color:var(--a-tx1);letter-spacing:-.4px">Utilisateurs & Accès</div>
+      <div class="a-mono" style="font-size:11px;color:var(--a-tx3);margin-top:3px">
+        {{ clientStats().total }} clients · {{ auth.admins().length }} comptes admin · 4 rôles
+      </div>
+    </div>
+    @if (tab() === 'admins' && auth.can('canManageUsers')) {
+      <button class="a-btn primary sm" (click)="openAdd()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nouveau compte
+      </button>
+    }
+  </div>
+
+  <!-- Onglets -->
+  <div style="display:flex;gap:2px;background:var(--a-bg3);padding:4px;border-radius:10px;margin-bottom:20px;width:fit-content">
+    @for (t of [
+      {id:'clients', label:'👤 Clients',            count:clientStats().total},
+      {id:'admins',  label:'🛡 Comptes admin',       count:auth.admins().length},
+      {id:'roles',   label:'🔑 Rôles & Permissions', count:4}
+    ]; track t.id) {
+      <button style="padding:7px 14px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;display:flex;align-items:center;gap:7px"
+              [style.background]="tab()===t.id?'var(--a-bg2)':'transparent'"
+              [style.color]="tab()===t.id?'var(--a-tx1)':'var(--a-tx3)'"
+              [style.box-shadow]="tab()===t.id?'0 1px 4px rgba(0,0,0,.15)':'none'"
+              (click)="tab.set($any(t.id))">
+        {{ t.label }}
+        <span class="a-mono" style="font-size:9px;padding:1px 6px;border-radius:4px;background:var(--a-bg3)">{{ t.count }}</span>
+      </button>
+    }
+  </div>
+
+  <!-- ═══════════════════ CLIENTS ═══════════════════════════════════════════ -->
+  @if (tab() === 'clients') {
+
+    <!-- KPI -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px;margin-bottom:18px">
+      <adm-stat label="Total"     [value]="clientStats().total"     color="a-blue"  [small]="true"/>
+      <adm-stat label="Actifs"    [value]="clientStats().active"    color="a-green" [small]="true"/>
+      <adm-stat label="Suspendus" [value]="clientStats().suspended" color="a-amber" [small]="true"/>
+      <adm-stat label="Bannis"    [value]="clientStats().banned"    color="a-red"   [small]="true"/>
+      <adm-stat label="En ligne"  [value]="clientStats().online"    color="a-cyan"  [small]="true"/>
+    </div>
+
+    <!-- Filtres -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end">
+      <div style="flex:1;min-width:200px;position:relative">
+        <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--a-tx3)" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input class="a-input" style="padding-left:32px" placeholder="Nom, email, téléphone…" [ngModel]="clientSearch()" (ngModelChange)="clientSearch.set($event)"/>
+      </div>
+      <div>
+        <div class="a-mono" style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--a-tx3);margin-bottom:5px">Statut</div>
+        <select class="a-select" [ngModel]="clientStatus()" (ngModelChange)="clientStatus.set($event)">
+          <option value="all">Tous</option><option value="active">Actifs</option>
+          <option value="suspended">Suspendus</option><option value="banned">Bannis</option>
+        </select>
+      </div>
+      <div>
+        <div class="a-mono" style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--a-tx3);margin-bottom:5px">Trier par</div>
+        <select class="a-select" [ngModel]="clientSort()" (ngModelChange)="clientSort.set($event)">
+          <option value="date">Inscription</option><option value="name">Nom</option>
+          <option value="spent">Dépenses ↓</option><option value="bookings">Réservations ↓</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="a-card" style="padding:0;overflow:hidden">
+      <div class="a-table-wrap">
+        <table class="a-table">
+          <thead><tr>
+            <th>Client</th><th>Contact</th><th>Statut</th><th>Inscrit</th>
+            <th>Réservations</th><th>Dépensé</th><th>Action</th>
+          </tr></thead>
+          <tbody>
+            @for (u of clientsFiltered(); track u.id) {
+              <tr style="cursor:pointer" (click)="openClient(u)">
+                <td>
+                  <div style="display:flex;align-items:center;gap:9px">
+                    <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0"
+                         [style.background]="csBg(u.status)" [style.color]="csColor(u.status)">{{ initials(u) }}</div>
+                    <div>
+                      <div style="font-weight:600;font-size:12px;color:var(--a-tx1)">{{ u.firstName }} {{ u.lastName }}</div>
+                      @if (u.isOnline) { <span class="a-mono" style="font-size:9px;color:var(--a-green)">● en ligne</span> }
+                    </div>
+                  </div>
+                </td>
+                <td><div style="font-size:11px;color:var(--a-tx2)">{{ u.email }}</div><div class="a-mono" style="font-size:10px;color:var(--a-tx3)">{{ u.phone }}</div></td>
+                <td>
+                  <span class="a-mono" style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:4px"
+                        [style.background]="csBg(u.status)" [style.color]="csColor(u.status)">{{ csLabel(u.status) }}</span>
+                </td>
+                <td class="a-mono" style="font-size:10px;color:var(--a-tx2)">{{ u.createdAt | date:'dd/MM/yyyy' }}</td>
+                <td class="a-mono" style="font-size:12px;font-weight:600;color:var(--a-tx1)">{{ u.bookingCount }}</td>
+                <td class="a-mono" style="font-size:11px;color:var(--a-green);font-weight:600">{{ u.totalSpent | ariary }}</td>
+                <td (click)="$event.stopPropagation()">
+                  <button class="a-btn ghost sm" style="font-size:10px;color:var(--a-cyan)" (click)="openClient(u)">
+                    Fiche →
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  <!-- ═══════════════════ COMPTES ADMIN ═════════════════════════════════════ -->
+  @if (tab() === 'admins') {
+
+    <!-- Filtres -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end">
+      <div style="flex:1;min-width:200px;position:relative">
+        <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--a-tx3)" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input class="a-input" style="padding-left:32px" placeholder="Nom, email…" [ngModel]="adminSearch()" (ngModelChange)="adminSearch.set($event)"/>
+      </div>
+      <div>
+        <div class="a-mono" style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--a-tx3);margin-bottom:5px">Rôle</div>
+        <select class="a-select" [ngModel]="adminRoleF()" (ngModelChange)="adminRoleF.set($event)">
+          <option value="all">Tous</option>
+          @for (r of allRoles(); track r.id) { <option [value]="r.id">{{ r.name }}</option> }
+        </select>
+      </div>
+    </div>
+
+    <!-- Grille cartes -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+      @for (u of adminsFiltered(); track u.id) {
+        <div class="a-card adm-role-card" style="padding:16px;cursor:pointer;transition:all .18s;border:2px solid transparent;border-left:3px solid"
+             [style.border-left-color]="roleColor(u.role)"
+             (click)="openAdmin(u)">
+
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:9px">
+              <div style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0"
+                   [style.background]="roleBg(u.role)" [style.color]="roleColor(u.role)">{{ adminInitials(u) }}</div>
+              <div>
+                <div style="font-weight:700;font-size:13px;color:var(--a-tx1)">{{ u.firstName }} {{ u.lastName }}</div>
+                <div style="font-size:10px;color:var(--a-tx3)">{{ u.email }}</div>
+              </div>
+            </div>
+            <span class="a-mono" style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap;flex-shrink:0"
+                  [style.background]="roleBg(u.role)" [style.color]="roleColor(u.role)">{{ roleLabel(u.role) }}</span>
+          </div>
+
+          <!-- Barre perms -->
+          <div style="height:3px;background:var(--a-border);border-radius:2px;margin-bottom:5px">
+            <div style="height:3px;border-radius:2px" [style.background]="roleColor(u.role)"
+                 [style.width]="(countPerms(u.role)/permKeys.length*100)+'%'"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="a-mono" style="font-size:9px;color:var(--a-tx3)">{{ countPerms(u.role) }}/{{ permKeys.length }} permissions</div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:11px;color:var(--a-cyan);font-weight:600">Voir la fiche →</span>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ═══════════════════ RÔLES & PERMISSIONS ══════════════════════════════ -->
+  @if (tab() === 'roles') {
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px">
+      @for (r of allRoles(); track r.id) {
+        <div class="a-card" style="padding:14px;cursor:pointer;border:2px solid;transition:all .15s"
+             [style.border-color]="selectedRole()===r.id ? r.color : 'transparent'"
+             (click)="selectedRole.set(r.id)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-size:13px;font-weight:700" [style.color]="r.color">{{ r.name }}</span>
+            <span class="a-mono" style="font-size:10px;color:var(--a-tx3)">{{ adminCountForRole(r.id) }}</span>
+          </div>
+          <div style="height:4px;background:var(--a-border);border-radius:2px;margin-bottom:6px">
+            <div style="height:4px;border-radius:2px" [style.background]="r.color" [style.width]="(countPerms(r.id)/permKeys.length*100)+'%'"></div>
+          </div>
+          <div style="font-size:10px;color:var(--a-tx3)">{{ countPerms(r.id) }} / {{ permKeys.length }} permissions</div>
+        </div>
+      }
+    </div>
+
+    <div class="a-card" style="padding:0;overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--a-border);display:flex;align-items:center;gap:12px">
+        <div style="width:10px;height:10px;border-radius:50%" [style.background]="roleColor(selectedRole())"></div>
+        <div style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ roleLabel(selectedRole()) }}</div>
+        <span class="a-mono" style="font-size:10px;color:var(--a-tx3)">{{ countPerms(selectedRole()) }} permissions actives</span>
+        <a routerLink="/admin/roles" style="margin-left:auto;font-size:10px;color:var(--a-cyan);text-decoration:none">Gérer les rôles →</a>
+        <span style="font-size:10px;color:var(--a-tx3);margin-left:auto;font-style:italic">Lecture seule</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">
+        @for (group of permGroups; track group) {
+          @let gp = permsInGroup(selectedRole(), group);
+          @if (gp.length > 0) {
+            <div style="padding:14px 18px;border-right:1px solid var(--a-border);border-bottom:1px solid var(--a-border)">
+              <div class="a-mono" style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--a-tx3);margin-bottom:9px">{{ group }}</div>
+              @for (p of gp; track p.key) {
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                  <div style="width:16px;height:16px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0"
+                       [style.background]="p.value ? roleBg(selectedRole()) : 'rgba(100,116,139,.08)'"
+                       [style.color]="p.value ? roleColor(selectedRole()) : 'var(--a-tx3)'">{{ p.value ? '✓' : '—' }}</div>
+                  <span style="font-size:11px" [style.color]="p.value ? 'var(--a-tx1)' : 'var(--a-tx3)'">{{ permLabel(p.key) }}</span>
+                </div>
+              }
+            </div>
+          }
+        }
+      </div>
+
+      <!-- Tableau comparatif -->
+      <div style="padding:16px 18px;border-top:2px solid var(--a-border)">
+        <div style="font-size:11px;font-weight:600;color:var(--a-tx2);margin-bottom:12px">Comparaison tous les rôles</div>
+        <div class="a-table-wrap">
+          <table class="a-table" style="font-size:11px">
+            <thead><tr>
+              <th style="min-width:180px">Permission</th>
+              @for (r of allRoles(); track r.id) { <th style="text-align:center" [style.color]="r.color">{{ r.name }}</th> }
+            </tr></thead>
+            <tbody>
+              @for (group of permGroups; track group) {
+                <tr><td colspan="5" style="background:var(--a-bg3);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--a-tx3);padding:5px 12px" class="a-mono">{{ group }}</td></tr>
+                @for (k of permKeys | permFilter:group; track k) {
+                  <tr>
+                    <td style="font-size:11px;color:var(--a-tx2)">{{ permLabel(k) }}</td>
+                    @for (r of allRoles(); track r.id) {
+                      <td style="text-align:center">
+                        @if (permsForRole(r.id)[k]) { <span [style.color]="r.color" style="font-weight:700;font-size:13px">✓</span> }
+                        @else { <span style="color:var(--a-border2);font-size:13px">—</span> }
+                      </td>
+                    }
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</div>
+
+<!-- ── Modale création compte admin ─────────────────────────────────────── -->
+@if (showAddModal()) {
+  <div class="a-overlay" (click)="showAddModal.set(false)">
+    <div class="a-modal a-fade" style="max-width:500px" (click)="$event.stopPropagation()">
+      <div class="a-modal-header">
+        <div class="a-modal-title">Nouveau compte interne</div>
+        <button class="a-btn ghost sm" (click)="closeAdd()" style="padding:4px 8px">✕</button>
+      </div>
+      <div class="a-modal-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div><label class="a-form-label">Prénom *</label><input class="a-input" placeholder="Jean" [(ngModel)]="addForm.firstName"/></div>
+          <div><label class="a-form-label">Nom *</label><input class="a-input" placeholder="RAZAFY" [(ngModel)]="addForm.lastName" style="text-transform:uppercase"/></div>
+        </div>
+        <div style="margin-bottom:12px">
+          <label class="a-form-label">Email *</label>
+          <input class="a-input" type="email" placeholder="nom@exemple.com" [(ngModel)]="addForm.email"/>
+        </div>
+        <div style="margin-bottom:12px">
+          <label class="a-form-label">Rôle</label>
+          <select class="a-select" style="width:100%" [(ngModel)]="addForm.role">
+            @for (r of allRoles(); track r.id) { <option [value]="r.id">{{ r.name }}</option> }
+          </select>
+          <div style="margin-top:6px;padding:8px 10px;border-radius:6px;font-size:10px;color:var(--a-tx2)" [style.background]="roleBg(addForm.role)">
+            {{ countPerms(addForm.role) }} permissions — {{ roleLabel(addForm.role) }}
+          </div>
+        </div>
+        <!-- Profil professionnel -->
+        <div style="font-size:10px;font-weight:700;color:var(--a-tx3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;margin-top:4px">🏢 Profil professionnel</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div><label class="a-form-label">Intitulé du poste</label><input class="a-input" placeholder="Ex : Responsable" [(ngModel)]="addForm.jobTitle"/></div>
+          <div><label class="a-form-label">Service / Département</label><input class="a-input" placeholder="Ex : Exploitation" [(ngModel)]="addForm.department"/></div>
+        </div>
+
+        <!-- Adresse -->
+        <div style="font-size:10px;font-weight:700;color:var(--a-tx3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📍 Adresse</div>
+        <div style="margin-bottom:10px">
+          <label class="a-form-label">Adresse postale</label>
+          <input class="a-input" placeholder="Lot XX, Rue YYY" [(ngModel)]="addForm.address"/>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+          <div><label class="a-form-label">Ville</label><input class="a-input" placeholder="Antananarivo" [(ngModel)]="addForm.city"/></div>
+          <div><label class="a-form-label">Code postal</label><input class="a-input" placeholder="101" [(ngModel)]="addForm.postalCode"/></div>
+          <div><label class="a-form-label">Pays</label><input class="a-input" [(ngModel)]="addForm.country"/></div>
+        </div>
+
+        @if (addForm.role === 'chauffeur') {
+          <div style="margin-bottom:12px;padding:10px 12px;border-radius:8px;background:var(--a-bg3);font-size:11px;color:var(--a-tx2);line-height:1.6">
+            Après la création, reliez ce compte à la fiche du chauffeur (page Chauffeurs → Modifier → Compte de connexion) pour qu'il voie son planning.
+          </div>
+        }
+        @if (inviteLink()) {
+          <div style="margin-top:10px;border:1px solid rgba(16,185,129,.3);background:rgba(16,185,129,.06);border-radius:8px;padding:12px">
+            <div style="font-size:12px;font-weight:700;color:var(--a-green);margin-bottom:6px">Compte créé. Transmettez ce lien d'activation (valable 72 h) :</div>
+            <div class="a-mono" style="font-size:11px;color:var(--a-tx1);word-break:break-all">{{ inviteLink() }}</div>
+            <button class="a-btn ghost sm" style="margin-top:8px" (click)="copyInvite()">Copier le lien</button>
+          </div>
+        } @else {
+          <div style="margin-top:10px;background:rgba(6,182,212,.07);border:1px solid rgba(6,182,212,.2);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--a-cyan);line-height:1.6">
+            📧 La personne reçoit un e-mail avec un lien pour choisir elle-même son mot de passe. Vous ne le connaissez jamais.
+          </div>
+        }
+      </div>
+      <div class="a-modal-footer">
+        <button class="a-btn ghost sm" (click)="closeAdd()">{{ inviteLink() ? 'Fermer' : 'Annuler' }}</button>
+        @if (!inviteLink()) { <button class="a-btn primary sm" [disabled]="adding()" (click)="submitAdd()">{{ adding() ? 'Création…' : 'Créer le compte' }}</button> }
+      </div>
+    </div>
+  </div>
+}

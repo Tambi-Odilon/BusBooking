@@ -1,0 +1,324 @@
+<div class="a-fade" style="max-width:720px;margin:0 auto">
+
+  <!-- ── Header avatar ── -->
+  <div class="a-card" style="padding:24px;margin-bottom:16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+    <!-- Avatar + sélecteur de couleur -->
+    <div style="position:relative;flex-shrink:0">
+      <div style="width:72px;height:72px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#fff;letter-spacing:-1px;transition:background .2s"
+           [style.background]="avatarColor()">
+        {{ initials() }}
+      </div>
+      <!-- Palette couleurs -->
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;width:72px">
+        @for (col of avatarColors; track col) {
+          <button (click)="infoForm.avatarColor = col"
+                  style="width:16px;height:16px;border-radius:4px;border:2px solid transparent;cursor:pointer;padding:0;transition:all .15s"
+                  [style.background]="col"
+                  [style.border-color]="infoForm.avatarColor === col ? '#fff' : 'transparent'"
+                  [style.box-shadow]="infoForm.avatarColor === col ? '0 0 0 1px ' + col : 'none'"
+                  title="{{ col }}">
+          </button>
+        }
+      </div>
+    </div>
+
+    <div style="flex:1;min-width:200px">
+      <div style="font-size:20px;font-weight:800;color:var(--a-tx1);letter-spacing:-.4px">
+        {{ me()?.firstName }} {{ me()?.lastName }}
+      </div>
+      @if (me()?.jobTitle || me()?.department) {
+        <div style="font-size:12px;color:var(--a-tx2);margin-top:2px">
+          {{ me()?.jobTitle }}@if (me()?.jobTitle && me()?.department) { · }{{ me()?.department }}
+        </div>
+      }
+      <div style="font-size:12px;color:var(--a-tx3);margin-top:2px">{{ me()?.email }}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px"
+              [style.background]="roleBg()" [style.color]="roleColor()">{{ roleLabel() }}</span>
+        <span class="a-mono" style="font-size:10px;color:var(--a-tx3)">{{ permCount() }}/{{ permTotal() }} permissions</span>
+        @if (me()?.publicId) {
+          <span class="a-mono" style="font-size:10px;background:rgba(139,92,246,.1);color:#a78bfa;padding:3px 10px;border-radius:6px;font-weight:700" title="Identifiant unique pour traçabilité juridique">
+            🔐 {{ me()!.publicId }}
+          </span>
+        }
+        @if (myBus()) {
+          <span style="font-size:10px;background:rgba(16,185,129,.12);color:#10b981;padding:3px 10px;border-radius:6px;font-weight:600">
+            🚐 {{ myBus()!.name }}
+          </span>
+        }
+        @if (me()?.phone || me()?.mobile) {
+          <span style="font-size:10px;color:var(--a-tx3)">
+            📞 {{ me()?.mobile || me()?.phone }}
+          </span>
+        }
+        @if (me()?.city) {
+          <span style="font-size:10px;color:var(--a-tx3)">📍 {{ me()?.city }}</span>
+        }
+      </div>
+    </div>
+    <button class="a-btn danger sm" (click)="logout()" style="flex-shrink:0;align-self:flex-start">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Déconnexion
+    </button>
+  </div>
+
+  <!-- ── Onglets ── -->
+  <div style="display:flex;gap:4px;background:var(--a-bg3);padding:4px;border-radius:10px;width:fit-content;margin-bottom:14px">
+    @for (t of [{id:'info',label:'👤 Identité & Contact'},{id:'pro',label:'🏢 Profil pro'},{id:'security',label:'🔒 Sécurité'}]; track t.id) {
+      <button style="padding:7px 16px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;white-space:nowrap"
+              [style.background]="tab()===t.id ? 'var(--a-bg2)' : 'transparent'"
+              [style.color]="tab()===t.id ? 'var(--a-tx1)' : 'var(--a-tx3)'"
+              [style.box-shadow]="tab()===t.id ? '0 1px 4px rgba(0,0,0,.15)' : 'none'"
+              (click)="tab.set($any(t.id))">{{ t.label }}</button>
+    }
+  </div>
+
+  <!-- ══ Onglet Identité & Contact ══════════════════════════════════════════ -->
+  @if (tab() === 'info') {
+    <div class="a-card" style="padding:24px">
+      <div style="font-size:14px;font-weight:700;color:var(--a-tx1);margin-bottom:18px">Identité & coordonnées</div>
+
+      <!-- Nom & Prénom -->
+      <div style="margin-bottom:4px;font-size:10px;font-weight:700;color:var(--a-tx3);text-transform:uppercase;letter-spacing:.5px">Identité</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div>
+          <label class="a-form-label">Prénom *</label>
+          <input class="a-input" [(ngModel)]="infoForm.firstName" placeholder="Jean" />
+        </div>
+        <div>
+          <label class="a-form-label">Nom *</label>
+          <input class="a-input" [(ngModel)]="infoForm.lastName" placeholder="RAZAFY" style="text-transform:uppercase" />
+        </div>
+      </div>
+
+      <!-- Email -->
+      <div style="margin-bottom:14px">
+        <label class="a-form-label">Adresse email *</label>
+        <input class="a-input" type="email" [(ngModel)]="infoForm.email" placeholder="nom@exemple.com" />
+      </div>
+
+      <!-- Téléphones -->
+      <div style="margin-bottom:4px;font-size:10px;font-weight:700;color:var(--a-tx3);text-transform:uppercase;letter-spacing:.5px;margin-top:6px">Coordonnées</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div>
+          <label class="a-form-label">Téléphone fixe</label>
+          <input class="a-input" [(ngModel)]="infoForm.phone" placeholder="+261 20 XX XXX XX" type="tel" />
+        </div>
+        <div>
+          <label class="a-form-label">Mobile / WhatsApp</label>
+          <input class="a-input" [(ngModel)]="infoForm.mobile" placeholder="+261 34 XX XXX XX" type="tel" />
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end">
+        <button class="a-btn primary sm" (click)="saveInfo()" [disabled]="saving()">
+          {{ saving() ? 'Enregistrement…' : 'Enregistrer' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- ══ Onglet Profil professionnel ════════════════════════════════════════ -->
+  @if (tab() === 'pro') {
+    <div class="a-card" style="padding:24px">
+      <div style="font-size:14px;font-weight:700;color:var(--a-tx1);margin-bottom:18px">Profil professionnel</div>
+
+      <!-- Poste & service -->
+      <div style="margin-bottom:4px;font-size:10px;font-weight:700;color:var(--a-tx3);text-transform:uppercase;letter-spacing:.5px">Poste</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div>
+          <label class="a-form-label">Intitulé du poste</label>
+          <input class="a-input" [(ngModel)]="proForm.jobTitle" placeholder="Ex : Responsable réservations" />
+        </div>
+        <div>
+          <label class="a-form-label">Service / Département</label>
+          <input class="a-input" [(ngModel)]="proForm.department" placeholder="Ex : Exploitation, Finance…" />
+        </div>
+      </div>
+
+      <!-- Adresse -->
+      <div style="margin-bottom:4px;font-size:10px;font-weight:700;color:var(--a-tx3);text-transform:uppercase;letter-spacing:.5px;margin-top:6px">Adresse</div>
+      <div style="margin-bottom:12px">
+        <label class="a-form-label">Adresse postale</label>
+        <input class="a-input" [(ngModel)]="proForm.address" placeholder="Lot XX, Rue YYY" />
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+        <div>
+          <label class="a-form-label">Ville</label>
+          <input class="a-input" [(ngModel)]="proForm.city" placeholder="Antananarivo" />
+        </div>
+        <div>
+          <label class="a-form-label">Code postal</label>
+          <input class="a-input" [(ngModel)]="proForm.postalCode" placeholder="101" />
+        </div>
+        <div>
+          <label class="a-form-label">Pays</label>
+          <input class="a-input" [(ngModel)]="proForm.country" placeholder="Madagascar" />
+        </div>
+      </div>
+
+      <!-- Bio -->
+      <div style="margin-bottom:4px;font-size:10px;font-weight:700;color:var(--a-tx3);text-transform:uppercase;letter-spacing:.5px;margin-top:6px">À propos</div>
+      <div style="margin-bottom:20px">
+        <label class="a-form-label">Biographie courte
+          <span style="font-weight:400;color:var(--a-tx3);font-size:10px;margin-left:5px">(visible par les autres administrateurs)</span>
+        </label>
+        <textarea class="a-input" [(ngModel)]="proForm.bio" placeholder="Quelques mots sur votre rôle, votre expérience…"
+                  rows="3" style="resize:vertical;font-family:inherit"></textarea>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end">
+        <button class="a-btn primary sm" (click)="savePro()" [disabled]="saving()">
+          {{ saving() ? 'Enregistrement…' : 'Enregistrer le profil pro' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- ══ Onglet Sécurité ════════════════════════════════════════════════════ -->
+  @if (tab() === 'security') {
+    <div class="a-card" style="padding:24px">
+      <div style="font-size:14px;font-weight:700;color:var(--a-tx1);margin-bottom:6px">Changer mon mot de passe</div>
+
+        <div style="font-size:11px;color:var(--a-tx3);margin-bottom:18px">Minimum 10 caractères. Utilisez majuscules, chiffres et symboles pour un mot de passe fort.</div>
+
+      <div style="margin-bottom:14px">
+        <label class="a-form-label">Mot de passe actuel</label>
+        <div style="position:relative">
+          <input class="a-input" [type]="showCurrent() ? 'text' : 'password'"
+                 [(ngModel)]="pwdForm.current" placeholder="••••••••"
+                 style="padding-right:42px" />
+          <button type="button" (click)="toggleCurrent()"
+                  style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--a-tx3);font-size:16px">
+            {{ showCurrent() ? '🙈' : '👁' }}
+          </button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div>
+          <label class="a-form-label">Nouveau mot de passe</label>
+          <div style="position:relative">
+            <input class="a-input" [type]="showNext() ? 'text' : 'password'"
+                   [(ngModel)]="pwdForm.next" placeholder="10 caractères min."
+                   style="padding-right:42px" />
+            <button type="button" (click)="toggleNext()"
+                    style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--a-tx3);font-size:16px">
+              {{ showNext() ? '🙈' : '👁' }}
+            </button>
+          </div>
+        </div>
+        <div>
+          <label class="a-form-label">Confirmer</label>
+          <div style="position:relative">
+            <input class="a-input" [type]="showConfirm() ? 'text' : 'password'"
+                   [(ngModel)]="pwdForm.confirm" placeholder="Répéter"
+                   style="padding-right:42px" />
+            <button type="button" (click)="toggleConfirm()"
+                    style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--a-tx3);font-size:16px">
+              {{ showConfirm() ? '🙈' : '👁' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Indicateur force -->
+      @if (pwdForm.next.length > 0) {
+        <div style="margin-bottom:16px">
+          <div style="display:flex;gap:4px;margin-bottom:4px">
+            @for (s of [1,2,3,4]; track s) {
+              <div style="flex:1;height:4px;border-radius:2px;transition:background .2s"
+                   [style.background]="pwdStrength()>=s ? (pwdStrength()<=1?'var(--a-red)':pwdStrength()===2?'var(--a-amber)':'var(--a-green)') : 'var(--a-border)'">
+              </div>
+            }
+          </div>
+          <div style="font-size:10px;color:var(--a-tx3)">Force : {{ ['','Faible','Moyen','Fort','Très fort'][pwdStrength()] }}</div>
+        </div>
+      }
+
+      <div style="display:flex;justify-content:flex-end">
+        <button class="a-btn primary sm" (click)="savePassword()"
+                [disabled]="pwdSaving()">
+          {{ pwdSaving() ? 'Enregistrement…' : 'Changer le mot de passe' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Double authentification -->
+    <div class="a-card" style="padding:24px;margin-top:16px">
+      @if (auth.mustEnable2fa() && !me()?.totpEnabled) {
+        <div role="alert" style="margin-bottom:14px;padding:10px 14px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:8px;font-size:12px;color:var(--a-amber)">
+          Votre rôle exige la double authentification. Activez-la pour accéder au reste du back-office.
+        </div>
+      }
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px">
+        <div style="font-size:14px;font-weight:700;color:var(--a-tx1)">Double authentification</div>
+        <span class="a-mono" style="font-size:10px;padding:3px 9px;border-radius:6px;font-weight:700"
+              [style.background]="me()?.totpEnabled ? 'rgba(16,185,129,.12)' : 'rgba(245,158,11,.12)'"
+              [style.color]="me()?.totpEnabled ? 'var(--a-green)' : 'var(--a-amber)'">{{ me()?.totpEnabled ? 'ACTIVÉE' : 'NON ACTIVÉE' }}</span>
+      </div>
+      <div style="font-size:11px;color:var(--a-tx3);margin-bottom:16px;line-height:1.6">
+        À chaque connexion, un code à 6 chiffres généré par une application (Google Authenticator, Microsoft Authenticator, Authy…) est demandé en plus du mot de passe.
+      </div>
+
+      @if (recoveryCodes().length) {
+        <div style="padding:14px;border:1px solid rgba(16,185,129,.3);background:rgba(16,185,129,.06);border-radius:10px;margin-bottom:14px">
+          <div style="font-size:12px;font-weight:700;color:var(--a-green);margin-bottom:6px">Double authentification activée. Conservez ces codes de secours.</div>
+          <div style="font-size:11px;color:var(--a-tx3);margin-bottom:10px">Chaque code sert une seule fois si vous perdez votre téléphone. Ils ne seront plus affichés.</div>
+          <div class="a-mono" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;font-size:12px;color:var(--a-tx1)">
+            @for (c of recoveryCodes(); track c) { <span style="padding:6px 8px;background:var(--a-bg3);border-radius:6px;text-align:center">{{ c }}</span> }
+          </div>
+          <button class="a-btn ghost sm" style="margin-top:10px" (click)="copyRecovery()">Copier les codes</button>
+        </div>
+      }
+
+      @if (!me()?.totpEnabled) {
+        @if (!twoFa()) {
+          <button class="a-btn primary sm" [disabled]="twoFaBusy()" (click)="start2fa()">Activer la double authentification</button>
+        } @else {
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start">
+            <img [src]="twoFa()!.qrDataUrl" alt="QR code à scanner avec l'application d'authentification" width="170" height="170" style="background:#fff;border-radius:10px;padding:6px" />
+            <div>
+              <div style="font-size:12px;color:var(--a-tx2);line-height:1.7;margin-bottom:10px">
+                1. Scannez ce QR code avec votre application d'authentification.<br>
+                2. Saisissez le code à 6 chiffres affiché par l'application.
+              </div>
+              <div style="font-size:10px;color:var(--a-tx3);margin-bottom:4px">Saisie manuelle de la clé :</div>
+              <div class="a-mono" style="font-size:11px;color:var(--a-tx1);word-break:break-all;margin-bottom:12px">{{ twoFa()!.secret }}</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <input class="a-input" style="max-width:150px;letter-spacing:3px;text-align:center" inputmode="numeric" maxlength="7" placeholder="000000"
+                       aria-label="Code à 6 chiffres" [(ngModel)]="twoFaCode" (keyup.enter)="confirm2fa()" />
+                <button class="a-btn primary sm" [disabled]="twoFaBusy() || twoFaCode.length < 6" (click)="confirm2fa()">Valider</button>
+                <button class="a-btn ghost sm" (click)="twoFa.set(null)">Annuler</button>
+              </div>
+            </div>
+          </div>
+        }
+      } @else {
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input class="a-input" type="password" style="max-width:240px" placeholder="Votre mot de passe" aria-label="Mot de passe pour désactiver" [(ngModel)]="twoFaPassword" />
+          <button class="a-btn danger sm" [disabled]="twoFaBusy() || !twoFaPassword" (click)="disable2fa()">Désactiver</button>
+        </div>
+      }
+    </div>
+
+    <!-- Appareils connectés -->
+    <div class="a-card" style="padding:24px;margin-top:16px">
+      <div style="font-size:14px;font-weight:700;color:var(--a-tx1);margin-bottom:6px">Appareils connectés</div>
+      <div style="font-size:11px;color:var(--a-tx3);margin-bottom:14px">Déconnectez un appareil que vous ne reconnaissez pas, puis changez votre mot de passe.</div>
+      @for (s of sessions(); track s.id) {
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--a-border)">
+          <div style="min-width:0">
+            <div style="font-size:12px;color:var(--a-tx1);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ deviceLabel(s.userAgent) }}
+              @if (s.current) { <span style="color:var(--a-green);font-weight:700"> · cet appareil</span> }</div>
+            <div class="a-mono" style="font-size:10px;color:var(--a-tx3)">{{ s.ip || '—' }} · connecté le {{ s.createdAt | date:'dd/MM/yyyy HH:mm' }}</div>
+          </div>
+          @if (!s.current) { <button class="a-btn ghost sm" style="color:var(--a-red)" (click)="revoke(s.id)">Déconnecter</button> }
+        </div>
+      } @empty {
+        <div style="font-size:11px;color:var(--a-tx3)">Aucun autre appareil.</div>
+      }
+    </div>
+  }
+
+</div>

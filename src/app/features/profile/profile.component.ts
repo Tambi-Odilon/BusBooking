@@ -1,6 +1,6 @@
+import { MoneyPipe, AppDatePipe } from '../../core/pipes/format.pipes';
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DecimalPipe } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { UserService } from '../../core/services/user.service';
@@ -12,7 +12,7 @@ type ProfileTab = 'profile' | 'bookings';
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [FormsModule, DecimalPipe],
+  imports: [MoneyPipe, AppDatePipe, FormsModule],
   templateUrl: './profile.component.html',
   styleUrl: './profile.component.scss',
 })
@@ -34,9 +34,13 @@ export class ProfileComponent implements OnInit {
   readonly saveSuccess    = signal(false);
   readonly expandedBooking = signal<string | null>(null);
   readonly confirmCancel  = signal<string | null>(null);
+  readonly profileError   = signal<string | null>(null);
+  readonly cancelError    = signal<string | null>(null);
+  readonly loadingBookings = this.userService.loading;
+  readonly hasMore        = this.userService.hasMore;
 
   // ── Formulaire profil ────────────────────────────────────────────────────
-  firstName = ''; lastName = ''; email = ''; phone = ''; gender = ''; age = 0;
+  firstName = ''; lastName = ''; email = ''; phone = ''; gender = '';
   currentPassword = ''; newPassword = ''; confirmPassword = '';
   passwordError   = '';
   passwordSuccess = false;
@@ -47,7 +51,7 @@ export class ProfileComponent implements OnInit {
       this.router.navigate(['/']); return;
     }
     this.loadProfileForm();
-    this.userService.loadBookings(this.currentUser()!.id);
+    void this.userService.loadBookings();
 
     // Lire le tab depuis query params
     this.route.queryParams.subscribe(params => {
@@ -62,7 +66,6 @@ export class ProfileComponent implements OnInit {
     this.email     = u.email;
     this.phone     = u.phone || '';
     this.gender    = u.gender || '';
-    this.age       = u.age || 0;
   }
 
   // ── Onglets ───────────────────────────────────────────────────────────────
@@ -71,16 +74,10 @@ export class ProfileComponent implements OnInit {
   // ── Sauvegarde profil ─────────────────────────────────────────────────────
   async saveProfile(): Promise<void> {
     if (!this.firstName.trim() || !this.lastName.trim()) return;
-    this.isSaving.set(true);
-    await this.delay(600);
-    this.authService.updateProfile({
-      firstName: this.firstName.trim(),
-      lastName:  this.lastName.trim(),
-      phone:     this.phone.trim(),
-      gender:    this.gender,
-      age:       this.age,
-    });
+    this.isSaving.set(true); this.profileError.set(null);
+    const ok = await this.authService.updateProfile({ firstName: this.firstName.trim(), lastName: this.lastName.trim(), phone: this.phone.trim(), gender: this.gender });
     this.isSaving.set(false);
+    if (!ok) { this.profileError.set(this.authService.getErrorMessage(this.authService.authError(), this.i18n.lang())); return; }
     this.saveSuccess.set(true);
     setTimeout(() => this.saveSuccess.set(false), 3000);
   }
@@ -91,16 +88,15 @@ export class ProfileComponent implements OnInit {
     this.passwordSuccess = false;
     const t = this.i18n.t().profile;
     if (!this.currentPassword) { this.passwordError = t.currentPassword + ' requis'; return; }
-    if (this.newPassword.length < 6) { this.passwordError = this.i18n.t().auth.weakPassword; return; }
-    if (this.newPassword !== this.confirmPassword) { this.passwordError = this.i18n.t().auth.weakPassword; return; }
+    if (this.newPassword.length < 10) { this.passwordError = this.i18n.t().x.passwordRule; return; }
+    if (this.newPassword !== this.confirmPassword) { this.passwordError = this.i18n.t().x.passwordMismatch; return; }
 
     this.isSaving.set(true);
-    await this.delay(500);
     const ok = await this.authService.changePassword(this.currentPassword, this.newPassword);
     this.isSaving.set(false);
 
     if (!ok) {
-      this.passwordError = 'Mot de passe actuel incorrect';
+      this.passwordError = this.authService.authError() === 'weak_password' ? this.i18n.t().x.passwordRule : this.i18n.t().x.passwordWrong;
       return;
     }
     this.currentPassword = ''; this.newPassword = ''; this.confirmPassword = '';
@@ -137,10 +133,14 @@ export class ProfileComponent implements OnInit {
 
   askCancel(id: string): void   { this.confirmCancel.set(id); }
   dismissCancel(): void         { this.confirmCancel.set(null); }
-  confirmCancelBooking(): void  {
+  async confirmCancelBooking(): Promise<void> {
     const id = this.confirmCancel();
-    if (id) { this.userService.cancelBooking(id); this.confirmCancel.set(null); }
+    if (!id) return;
+    this.cancelError.set(await this.userService.cancelBooking(id));
+    this.confirmCancel.set(null);
   }
+  loadMore(): void { void this.userService.loadMore(); }
+  openTicket(b: SavedBooking): void { this.router.navigate(['/booking', b.reference], { queryParams: b.accessToken ? { t: b.accessToken } : {} }); }
 
   // ── Helpers UI ────────────────────────────────────────────────────────────
   getInitials(): string {
@@ -150,7 +150,8 @@ export class ProfileComponent implements OnInit {
 
   getStatusBadge(status: SavedBooking['status']): string {
     if (status === 'confirmed') return 'bg-green-100 text-green-700 border-green-200';
-    if (status === 'cancelled') return 'bg-red-100 text-red-700 border-red-200';
+    if (status === 'cancelled' || status === 'expired') return 'bg-red-100 text-red-700 border-red-200';
+    if (status === 'pending') return 'bg-amber-100 text-amber-800 border-amber-200';
     return 'bg-slate-100 text-slate-600 border-slate-200';
   }
 
@@ -158,6 +159,8 @@ export class ProfileComponent implements OnInit {
     const t = this.i18n.t().profile;
     if (status === 'confirmed') return t.statusConfirmed;
     if (status === 'cancelled') return t.statusCancelled;
+    if (status === 'pending') return this.i18n.t().x.stPending;
+    if (status === 'expired') return this.i18n.t().x.stExpired;
     return t.statusCompleted;
   }
 
@@ -178,5 +181,4 @@ export class ProfileComponent implements OnInit {
     this.router.navigate(['/']);
   }
 
-  private delay(ms: number): Promise<void> { return new Promise(r => setTimeout(r, ms)); }
 }

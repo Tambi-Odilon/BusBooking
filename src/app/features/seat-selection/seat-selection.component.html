@@ -24,7 +24,7 @@
         </div>
         <div class="text-right">
           <p class="text-xs text-slate-500">{{ i18n.t().seats.baseFare }}</p>
-          <p class="font-bold text-slate-900">{{ selectedBus()!.price | number }} {{ i18n.t().seats.perSeat }}</p>
+          <p class="font-bold text-slate-900">{{ selectedBus()!.price | money }} {{ i18n.t().seats.perSeat }}</p>
         </div>
       </div>
     </div>
@@ -65,7 +65,8 @@
           </div>
         </div>
 
-        <!-- ── Bandeau compte à rebours ── -->
+        <!-- ── Bandeau compte à rebours (place réservée : son apparition ne décale pas les sièges sous le doigt) ── -->
+        <div style="min-height:4rem">
         @if (remainingLabel() && selectedSeats().length > 0) {
           <div [class]="'flex items-center gap-3 px-4 py-3 rounded-xl mb-4 text-sm font-medium transition-all ' +
                         (isExpiringSoon()
@@ -88,6 +89,7 @@
             }
           </div>
         }
+        </div>
 
         <!-- ── Message expiration ── -->
         @if (lockExpired()) {
@@ -97,6 +99,30 @@
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
             {{ i18n.t().seats.lockExpired }}
+          </div>
+        }
+        @if (notice()) {
+          <div class="flex items-center gap-3 px-4 py-3 rounded-xl mb-4 bg-amber-50 border border-amber-300 text-amber-900 text-sm font-medium" role="alert">
+            <span aria-hidden="true">⚠️</span><span class="flex-1">{{ notice() }}</span>
+            <button type="button" (click)="notice.set(null)" class="text-amber-700 hover:text-amber-900 px-2" [attr.aria-label]="i18n.t().x.close">✕</button>
+          </div>
+        }
+        @if (tripNotice() === 'cancelled') {
+          <div class="px-4 py-3 rounded-xl mb-4 bg-red-50 border border-red-300 text-red-700 text-sm font-medium" role="alert">
+            {{ i18n.t().x.tripCancelled }}
+            <button type="button" (click)="goBack()" class="underline ml-2 font-semibold">{{ i18n.t().seats.backBtn }}</button>
+          </div>
+        }
+        @if (tripNotice() === 'vehicle_changed') {
+          <div class="px-4 py-3 rounded-xl mb-4 bg-blue-50 border border-blue-200 text-blue-800 text-sm font-medium" role="status">{{ i18n.t().x.vehicleChanged }}</div>
+        }
+        @if (loading()) {
+          <div class="h-72 rounded-2xl bg-slate-100 animate-pulse mb-4" aria-busy="true" [attr.aria-label]="i18n.t().x.loading"></div>
+        }
+        @if (loadError() && !seatRows().length) {
+          <div class="px-4 py-8 rounded-xl mb-4 bg-slate-50 border border-slate-200 text-slate-700 text-sm text-center" role="alert">
+            <p class="mb-3">{{ i18n.t().x.seatsError }}</p>
+            <button type="button" (click)="reload()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold">{{ i18n.t().x.retry }}</button>
           </div>
         }
 
@@ -124,7 +150,7 @@
                   <span class="text-xs text-slate-400 w-5 text-right font-semibold">{{ row.rowId }}</span>
                   <!-- Sièges gauche -->
                   @for (seat of row.seats.slice(0, row.aisleAfter ?? 2); track seat.number) {
-                    <button (click)="toggleSeat(seat.number)" [disabled]="seat.status === 'booked'"
+                    <button type="button" (click)="toggleSeat(seat.number)" [disabled]="seat.status !== 'available'" [attr.aria-label]="seatLabel(seat)" [attr.aria-pressed]="selectedSeats().includes(seat.number)"
                             [class]="getSeatClass(seat)" [title]="seat.number">
                       <span class="text-[10px] font-semibold leading-none">{{ seat.number }}</span>
                     </button>
@@ -133,7 +159,7 @@
                   <div class="w-5 border-l-2 border-dashed border-slate-200 h-10"></div>
                   <!-- Sièges droite -->
                   @for (seat of row.seats.slice(row.aisleAfter ?? 2); track seat.number) {
-                    <button (click)="toggleSeat(seat.number)" [disabled]="seat.status === 'booked'"
+                    <button type="button" (click)="toggleSeat(seat.number)" [disabled]="seat.status !== 'available'" [attr.aria-label]="seatLabel(seat)" [attr.aria-pressed]="selectedSeats().includes(seat.number)"
                             [class]="getSeatClass(seat)" [title]="seat.number">
                       <span class="text-[10px] font-semibold leading-none">{{ seat.number }}</span>
                     </button>
@@ -170,7 +196,7 @@
                   <div class="flex-1 flex justify-end gap-2">
                     <!-- 2 passagers avant (côté passager) -->
                     @for (seat of row.seats; track seat.number) {
-                      <button (click)="toggleSeat(seat.number)" [disabled]="seat.status === 'booked'"
+                      <button type="button" (click)="toggleSeat(seat.number)" [disabled]="seat.status !== 'available'" [attr.aria-label]="seatLabel(seat)" [attr.aria-pressed]="selectedSeats().includes(seat.number)"
                               [class]="getSeatClass(seat)" [title]="seat.number">
                         <span class="text-[10px] font-semibold leading-none">{{ seat.number }}</span>
                       </button>
@@ -184,7 +210,7 @@
 
                   <!-- Sièges gauche (0 → aisleAfter) -->
                   @for (seat of row.seats.slice(0, row.aisleAfter ?? 2); track seat.number) {
-                    <button (click)="toggleSeat(seat.number)" [disabled]="seat.status === 'booked'"
+                    <button type="button" (click)="toggleSeat(seat.number)" [disabled]="seat.status !== 'available'" [attr.aria-label]="seatLabel(seat)" [attr.aria-pressed]="selectedSeats().includes(seat.number)"
                             [class]="getSeatClass(seat)" [title]="seat.number">
                       <span class="text-[10px] font-semibold leading-none">{{ seat.number }}</span>
                     </button>
@@ -193,7 +219,7 @@
                   <div class="w-6 border-l-2 border-dashed border-slate-200 h-10"></div>
                   <!-- Sièges droite (aisleAfter → fin) -->
                   @for (seat of row.seats.slice(row.aisleAfter ?? 2); track seat.number) {
-                    <button (click)="toggleSeat(seat.number)" [disabled]="seat.status === 'booked'"
+                    <button type="button" (click)="toggleSeat(seat.number)" [disabled]="seat.status !== 'available'" [attr.aria-label]="seatLabel(seat)" [attr.aria-pressed]="selectedSeats().includes(seat.number)"
                             [class]="getSeatClass(seat)" [title]="seat.number">
                       <span class="text-[10px] font-semibold leading-none">{{ seat.number }}</span>
                     </button>
@@ -224,7 +250,7 @@
                   <div class="w-10 h-10 rounded-lg bg-amber-100 border-2 border-amber-300 flex items-center justify-center text-lg flex-shrink-0">🚗</div>
                   <!-- 1 passager avant -->
                   @for (seat of row.seats; track seat.number) {
-                    <button (click)="toggleSeat(seat.number)" [disabled]="seat.status === 'booked'"
+                    <button type="button" (click)="toggleSeat(seat.number)" [disabled]="seat.status !== 'available'" [attr.aria-label]="seatLabel(seat)" [attr.aria-pressed]="selectedSeats().includes(seat.number)"
                             [class]="getVipSeatClass(seat)" [title]="seat.number">
                       <div class="flex flex-col items-center gap-0.5">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -245,7 +271,7 @@
 
                   <!-- 2 sièges gauche -->
                   @for (seat of row.seats.slice(0, 2); track seat.number) {
-                    <button (click)="toggleSeat(seat.number)" [disabled]="seat.status === 'booked'"
+                    <button type="button" (click)="toggleSeat(seat.number)" [disabled]="seat.status !== 'available'" [attr.aria-label]="seatLabel(seat)" [attr.aria-pressed]="selectedSeats().includes(seat.number)"
                             [class]="getVipSeatClass(seat)" [title]="seat.number">
                       <div class="flex flex-col items-center gap-0.5">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -263,7 +289,7 @@
                   <div class="w-8 border-l-2 border-dashed border-violet-200 h-14 mx-1"></div>
 
                   <!-- 1 siège droite -->
-                  <button (click)="toggleSeat(row.seats[2].number)" [disabled]="row.seats[2].status === 'booked'"
+                  <button type="button" (click)="toggleSeat(row.seats[2].number)" [disabled]="row.seats[2].status !== 'available'" [attr.aria-label]="seatLabel(row.seats[2])" [attr.aria-pressed]="selectedSeats().includes(row.seats[2].number)"
                           [class]="getVipSeatClass(row.seats[2])" [title]="row.seats[2].number">
                     <div class="flex flex-col items-center gap-0.5">
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -324,16 +350,16 @@
 
         <div class="border-t border-slate-100 pt-4 space-y-2 mb-4">
           <div class="flex justify-between text-sm">
-            <span class="text-slate-600">{{ selectedSeats().length }} × {{ selectedBus()?.price | number }} Ar</span>
-            <span class="font-medium">{{ ticketTotal() | number }} Ar</span>
+            <span class="text-slate-600">{{ selectedSeats().length }} × {{ selectedBus()?.price | money }}</span>
+            <span class="font-medium">{{ ticketTotal() | money }}</span>
           </div>
           <div class="flex justify-between text-sm">
             <span class="text-slate-600">{{ i18n.t().seats.serviceFee }}</span>
-            <span class="font-medium">2 000 Ar</span>
+            <span class="font-medium">{{ fee() | money }}</span>
           </div>
           <div class="border-t border-slate-100 pt-2 flex justify-between">
             <span class="font-bold">{{ i18n.t().seats.total }}</span>
-            <span class="text-xl font-bold text-blue-600">{{ total() | number }} Ar</span>
+            <span class="text-xl font-bold text-blue-600">{{ total() | money }}</span>
           </div>
         </div>
 

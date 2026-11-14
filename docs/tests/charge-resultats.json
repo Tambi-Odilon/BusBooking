@@ -1,0 +1,174 @@
+{
+  "date": "2026-11-12T12:30:38.521Z",
+  "base": "http://127.0.0.1:3999",
+  "s1": {
+    "clients": 500,
+    "durationMs": 1240,
+    "responses": {
+      "200": 1,
+      "409 SEAT_TAKEN": 499
+    }
+  },
+  "s2": {
+    "clients": 1000,
+    "seats": 48,
+    "sold": 48,
+    "durationMs": 10095,
+    "outcomes": {
+      "200": 48,
+      "409 COMPLET": 952
+    },
+    "tripId": "5e037f6a-a5fd-4e96-be63-92f4b6367a3a"
+  },
+  "s3": {
+    "requests": 4000,
+    "durationMs": 7391,
+    "rps": 541,
+    "responses": {
+      "200": 4000
+    }
+  },
+  "latencies": {
+    "S1 paiement": {
+      "n": 1,
+      "p50": 15,
+      "p95": 15,
+      "p99": 15,
+      "max": 15
+    },
+    "S1 réservation": {
+      "n": 1,
+      "p50": 24,
+      "p95": 24,
+      "p99": 24,
+      "max": 24
+    },
+    "S1 suivi": {
+      "n": 2,
+      "p50": 9,
+      "p95": 9,
+      "p99": 9,
+      "max": 9
+    },
+    "S1 verrou (après vente)": {
+      "n": 1,
+      "p50": 4,
+      "p95": 4,
+      "p99": 4,
+      "max": 4
+    },
+    "S1 verrou (même siège)": {
+      "n": 500,
+      "p50": 1076,
+      "p95": 1156,
+      "p99": 1165,
+      "max": 1237
+    },
+    "S2 paiement": {
+      "n": 48,
+      "p50": 1301,
+      "p95": 1984,
+      "p99": 2022,
+      "max": 2022
+    },
+    "S2 recherche": {
+      "n": 1,
+      "p50": 5,
+      "p95": 5,
+      "p99": 5,
+      "max": 5
+    },
+    "S2 réservation": {
+      "n": 48,
+      "p50": 3696,
+      "p95": 8352,
+      "p99": 8385,
+      "max": 8385
+    },
+    "S2 suivi": {
+      "n": 96,
+      "p50": 241,
+      "p95": 308,
+      "p99": 349,
+      "max": 349
+    },
+    "S2 verrou": {
+      "n": 4832,
+      "p50": 883,
+      "p95": 6740,
+      "p99": 7944,
+      "max": 8207
+    },
+    "S3 plan de sièges": {
+      "n": 2000,
+      "p50": 342,
+      "p95": 433,
+      "p99": 464,
+      "max": 514
+    },
+    "S3 recherche": {
+      "n": 2000,
+      "p50": 387,
+      "p95": 490,
+      "p99": 534,
+      "max": 559
+    }
+  },
+  "checks": [
+    {
+      "label": "un seul client obtient le siège",
+      "ok": true,
+      "detail": "1 gagnant(s)"
+    },
+    {
+      "label": "tous les autres reçoivent 409 SEAT_TAKEN (ou 503 « réessayez »), aucune erreur 500",
+      "ok": true,
+      "detail": "{\"200\":1,\"409 SEAT_TAKEN\":499}"
+    },
+    {
+      "label": "la vente du gagnant est confirmée et son billet émis",
+      "ok": true,
+      "detail": "statut confirmed"
+    },
+    {
+      "label": "le siège vendu ne peut plus être pris",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "exactement 48 billets vendus",
+      "ok": true,
+      "detail": "48 vendus pour 48 places"
+    },
+    {
+      "label": "aucun siège vendu deux fois",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "label": "aucune erreur 500",
+      "ok": true,
+      "detail": "{\"200\":48,\"409 COMPLET\":952}"
+    },
+    {
+      "label": "le manifeste du voyage contient 48 passagers sur 48 sièges distincts",
+      "ok": true,
+      "detail": "48 passagers"
+    },
+    {
+      "label": "la recherche affiche le départ complet",
+      "ok": true,
+      "detail": "statut full"
+    },
+    {
+      "label": "toutes les lectures réussissent",
+      "ok": true,
+      "detail": "{\"200\":4000}"
+    },
+    {
+      "label": "le serveur est toujours en bonne santé après la charge",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

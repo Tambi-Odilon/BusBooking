@@ -1,0 +1,335 @@
+<div class="su">
+  <header class="su-top">
+    <div class="su-top-in">
+      <div>
+        <p class="su-kicker">Première configuration</p>
+        <h1 class="su-h1">Préparez votre application de réservation</h1>
+      </div>
+      @if (state() === 'form') {
+        <p class="su-save" role="status" aria-live="polite">
+          @switch (saveState()) {
+            @case ('saving') { Enregistrement du brouillon… }
+            @case ('saved') { Brouillon enregistré à {{ savedAt() }} }
+            @case ('local') { Brouillon gardé sur cet appareil à {{ savedAt() }} (serveur injoignable) }
+            @default { Votre progression est enregistrée automatiquement }
+          }
+        </p>
+      }
+    </div>
+  </header>
+
+  @switch (state()) {
+    @case ('loading') { <main class="su-center"><div class="su-spinner" role="status" aria-label="Chargement"></div></main> }
+
+    @case ('error') {
+      <main class="su-center">
+        <div class="su-card su-narrow">
+          <h2 class="su-h2">Le serveur ne répond pas</h2>
+          <p class="su-text">{{ loadError() }}</p>
+          <button type="button" class="su-btn su-primary" (click)="load()">Réessayer</button>
+        </div>
+      </main>
+    }
+
+    @case ('token') {
+      <main class="su-center">
+        <form class="su-card su-narrow" (ngSubmit)="submitToken()">
+          <h2 class="su-h2">Code d'installation</h2>
+          <p class="su-text">Pour que personne d'autre ne configure l'application à votre place, saisissez le code d'installation.
+            Il se trouve dans le fichier <code>.env</code> du serveur, à la ligne <code>SETUP_TOKEN</code>.</p>
+          <label class="su-label" for="su-token">Code d'installation</label>
+          <input id="su-token" name="token" class="su-input" [(ngModel)]="token" autocomplete="off" autofocus />
+          @if (tokenError()) { <p class="su-error" role="alert">{{ tokenError() }}</p> }
+          <button type="submit" class="su-btn su-primary" [disabled]="!token.trim()">Continuer</button>
+        </form>
+      </main>
+    }
+
+    @case ('done') {
+      <main class="su-center">
+        <div class="su-card su-narrow su-done">
+          <div class="su-check" aria-hidden="true">✓</div>
+          <h2 class="su-h2">{{ d()?.identity?.name }} est prêt</h2>
+          <p class="su-text">La configuration est enregistrée et cet assistant est maintenant fermé. Connectez-vous avec le compte administrateur que vous venez de créer.</p>
+          <ul class="su-next">
+            @if (d()?.twoFactor) { <li>À la première connexion, l'activation de la double authentification vous sera proposée.</li> }
+            @if (d()?.seed === 'empty') { <li>Créez ensuite vos véhicules, vos itinéraires, puis vos voyages.</li> } @else { <li>Un exemple (3 villes, 2 itinéraires, 2 véhicules) est en place pour vos essais.</li> }
+            <li>Tout ce que vous avez saisi se modifie dans <strong>Société et réglages</strong>.</li>
+          </ul>
+          <button type="button" class="su-btn su-primary" (click)="toLogin()">Se connecter au back-office</button>
+        </div>
+      </main>
+    }
+
+    @case ('form') {
+      @let draft = d()!;
+      <nav class="su-steps" aria-label="Étapes de la configuration">
+        <div class="su-bar" role="progressbar" [attr.aria-valuenow]="progress()" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuetext]="'Étape ' + (step() + 1) + ' sur ' + steps.length">
+          <div class="su-bar-fill" [style.width.%]="progress()"></div>
+        </div>
+        <ol class="su-steplist">
+          @for (s of steps; track s.id; let i = $index) {
+            <li>
+              <button type="button" class="su-step" [class]="'su-step ' + stepState(i)" (click)="go(i)" [attr.aria-current]="i === step() ? 'step' : null">
+                <span class="su-num" aria-hidden="true">{{ stepState(i) === 'done' ? '✓' : i + 1 }}</span>
+                <span class="su-step-title">{{ s.title }}@if (s.required) { <span class="su-req" title="Obligatoire"> *</span> }</span>
+                @if (stepState(i) === 'skipped') { <span class="su-tag">plus tard</span> }
+              </button>
+            </li>
+          }
+        </ol>
+        <p class="su-step-mobile">Étape {{ step() + 1 }} sur {{ steps.length }} · <strong>{{ current().title }}</strong></p>
+      </nav>
+
+      <main class="su-main">
+        <section class="su-card su-form" [attr.aria-labelledby]="'su-step-title'">
+          <div class="su-form-head">
+            <h2 class="su-h2" id="su-step-title">{{ current().title }}</h2>
+            <p class="su-text">{{ current().intro }}</p>
+            @if (!current().required && current().id !== 'review') { <p class="su-optional">Étape facultative : des valeurs par défaut sont déjà en place.</p> }
+          </div>
+
+          @if (errors().length) {
+            <div class="su-alert" role="alert">
+              <strong>À corriger :</strong>
+              <ul>@for (e of errors(); track e) { <li>{{ e }}</li> }</ul>
+            </div>
+          }
+
+          @switch (current().id) {
+            @case ('payments') {
+              <div class="su-pay">
+                @for (p of draft.payments; track p.code) {
+                  <div class="su-pay-item" [class.on]="p.enabled">
+                    <label class="su-pay-head">
+                      <input type="checkbox" [(ngModel)]="p.enabled" (ngModelChange)="touch()" [name]="'pay-' + p.code" />
+                      <span class="su-pay-name">{{ p.name }}</span>
+                      <span class="su-pay-kind">{{ p.kind === 'cash' ? 'Au guichet uniquement' : 'Paiement mobile en ligne' }}</span>
+                    </label>
+                    @if (p.enabled && p.kind !== 'cash') {
+                      <div class="su-pay-body">
+                        <fieldset class="su-seg">
+                          <legend class="su-label">Mode</legend>
+                          <label [class.on]="p.mode === 'test'"><input type="radio" [name]="'mode-' + p.code" [checked]="p.mode === 'test'" (change)="setMode(p, 'test')" /> Test</label>
+                          <label [class.on]="p.mode === 'live'"><input type="radio" [name]="'mode-' + p.code" [checked]="p.mode === 'live'" (change)="setMode(p, 'live')" /> Production</label>
+                        </fieldset>
+                        <p class="su-help">
+                          @if (p.mode === 'test' && !hasAllSecrets(p)) { Sans clés, les paiements sont <strong>simulés</strong> : aucun argent ne circule. Idéal pour essayer l'application. }
+                          @else if (p.mode === 'test') { Avec vos clés de test, les paiements passent par le bac à sable de l'opérateur. }
+                          @else { Paiements réels. Toutes les clés ci-dessous sont nécessaires. }
+                        </p>
+                        <div class="su-grid2">
+                          @for (k of publicKeys(p); track k) {
+                            <div>
+                              <label class="su-label" [for]="'pc-' + p.code + k">{{ publicLabels[k]?.label || k }}</label>
+                              <input class="su-input" [id]="'pc-' + p.code + k" [name]="'pc-' + p.code + k" [(ngModel)]="p.publicConfig[k]" (ngModelChange)="touch()" [placeholder]="publicLabels[k]?.placeholder || ''" autocomplete="off" />
+                              @if (publicLabels[k]?.help) { <p class="su-help">{{ publicLabels[k]?.help }}</p> }
+                            </div>
+                          }
+                          @for (f of p.secretFields; track f) {
+                            <div>
+                              <label class="su-label" [for]="'ps-' + p.code + f">{{ secretLabels[f] || f }} <span class="su-lock" title="Stocké chiffré, jamais réaffiché">🔒</span></label>
+                              <input class="su-input" type="password" [id]="'ps-' + p.code + f" [name]="'ps-' + p.code + f" [ngModel]="secret(p.code, f)" (ngModelChange)="setSecret(p.code, f, $event)"
+                                     placeholder="Fournie par l'opérateur" autocomplete="new-password" />
+                            </div>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+                <p class="su-help">Les clés ne sont pas conservées dans le brouillon : si vous quittez cette page avant d'avoir terminé, il faudra les saisir de nouveau.
+                  Vous pouvez aussi les ajouter plus tard dans Société et réglages → Paiements.</p>
+              </div>
+            }
+
+            @case ('notifications') {
+              <app-settings-form group="notifications" [model]="draft.notifications" (changed)="touch()" />
+              @if (draft.notifications.email.enabled) {
+                <div class="su-box">
+                  <div class="su-grid2">
+                    <div>
+                      <label class="su-label" for="su-smtp-pwd">Mot de passe SMTP <span class="su-lock" title="Stocké chiffré, jamais réaffiché">🔒</span></label>
+                      <input id="su-smtp-pwd" name="smtpPwd" type="password" class="su-input" [(ngModel)]="smtpPassword" autocomplete="new-password" placeholder="Fourni par votre hébergeur d'e-mails" />
+                    </div>
+                    <div>
+                      <label class="su-label" for="su-test-to">Envoyer un e-mail de test à</label>
+                      <div class="su-inline">
+                        <input id="su-test-to" name="testTo" type="email" class="su-input" [(ngModel)]="testTo" placeholder="vous@exemple.com" />
+                        <button type="button" class="su-btn su-ghost" (click)="testEmail()" [disabled]="testState().status === 'sending'">{{ testState().status === 'sending' ? 'Envoi…' : 'Tester' }}</button>
+                      </div>
+                    </div>
+                  </div>
+                  @if (testState().message) { <p [class]="testState().status === 'ok' ? 'su-ok' : 'su-error'" role="status">{{ testState().message }}</p> }
+                </div>
+              }
+              @if (draft.notifications.sms.enabled && draft.notifications.sms.provider === 'http') {
+                <div class="su-box">
+                  <label class="su-label" for="su-sms-key">Clé API de la passerelle SMS <span class="su-lock" title="Stockée chiffrée, jamais réaffichée">🔒</span></label>
+                  <input id="su-sms-key" name="smsKey" type="password" class="su-input" [(ngModel)]="smsApiKey" autocomplete="new-password" />
+                </div>
+              }
+              <div class="su-box">
+                <h3 class="su-h3">Modèles d'e-mails</h3>
+                <p class="su-help">Des modèles prêts à l'emploi sont fournis (billet confirmé, annulation, remboursement, rappel de départ, mot de passe…).
+                  Ils reprennent automatiquement votre nom et vos couleurs grâce aux variables
+                  <code>{{ '{' + '{company_name}' + '}' }}</code>, <code>{{ '{' + '{ticket_number}' + '}' }}</code>, <code>{{ '{' + '{customer_name}' + '}' }}</code>, <code>{{ '{' + '{departure_time}' + '}' }}</code>…
+                  Vous les personnaliserez après la connexion, dans Société et réglages → Modèles d'e-mails.</p>
+              </div>
+            }
+
+            @case ('admin') {
+              <div class="su-grid2">
+                <div>
+                  <label class="su-label" for="su-fn">Prénom <span class="su-req">*</span></label>
+                  <input id="su-fn" name="fn" class="su-input" [(ngModel)]="draft.admin.firstName" (ngModelChange)="touch()" placeholder="Ex. Miora" autocomplete="given-name" required />
+                </div>
+                <div>
+                  <label class="su-label" for="su-ln">Nom <span class="su-req">*</span></label>
+                  <input id="su-ln" name="ln" class="su-input" [(ngModel)]="draft.admin.lastName" (ngModelChange)="touch()" placeholder="Ex. Rakoto" autocomplete="family-name" required />
+                </div>
+                <div class="su-span2">
+                  <label class="su-label" for="su-em">E-mail de connexion <span class="su-req">*</span></label>
+                  <input id="su-em" name="em" type="email" class="su-input" [(ngModel)]="draft.admin.email" (ngModelChange)="touch()" placeholder="vous@votre-societe.com" autocomplete="username" required />
+                  <p class="su-help">Sert d'identifiant. Les liens de réinitialisation du mot de passe y sont envoyés.</p>
+                </div>
+                <div>
+                  <label class="su-label" for="su-pw">Mot de passe <span class="su-req">*</span></label>
+                  <input id="su-pw" name="pw" [type]="showPwd() ? 'text' : 'password'" class="su-input" [(ngModel)]="password" (ngModelChange)="rev.set(rev() + 1)" autocomplete="new-password" required aria-describedby="su-pw-rules" />
+                </div>
+                <div>
+                  <label class="su-label" for="su-pw2">Confirmer le mot de passe <span class="su-req">*</span></label>
+                  <input id="su-pw2" name="pw2" [type]="showPwd() ? 'text' : 'password'" class="su-input" [(ngModel)]="password2" (ngModelChange)="rev.set(rev() + 1)" autocomplete="new-password" required />
+                  @if (password2 && password !== password2) { <p class="su-error" role="alert">Les deux mots de passe sont différents.</p> }
+                </div>
+                <div class="su-span2">
+                  <ul class="su-rules" id="su-pw-rules">
+                    @for (c of passwordChecks(); track c.label) { <li [class.ok]="c.ok"><span aria-hidden="true">{{ c.ok ? '✓' : '○' }}</span> {{ c.label }}</li> }
+                  </ul>
+                  <label class="su-checkline"><input type="checkbox" [checked]="showPwd()" (change)="showPwd.set(!showPwd())" /> Afficher les mots de passe</label>
+                  <p class="su-help">Le mot de passe n'est pas enregistré dans le brouillon. Il est chiffré de façon irréversible sur le serveur : personne ne peut le relire.</p>
+                </div>
+                <div class="su-span2 su-box">
+                  <label class="su-checkline su-strong"><input type="checkbox" [(ngModel)]="draft.twoFactor" (ngModelChange)="touch()" name="twofa" /> Protéger ce compte par la double authentification (recommandé)</label>
+                  <p class="su-help">À la première connexion, vous scannerez un QR code avec une application comme Google Authenticator. Un code à 6 chiffres sera ensuite demandé à chaque connexion.</p>
+                </div>
+              </div>
+            }
+
+            @case ('seed') {
+              <div class="su-choices" role="radiogroup" aria-label="Données de départ">
+                <label class="su-choice" [class.on]="draft.seed === 'empty'">
+                  <input type="radio" name="seed" value="empty" [(ngModel)]="draft.seed" (ngModelChange)="touch()" />
+                  <span class="su-choice-title">Démarrer vide</span>
+                  <span class="su-choice-text">Aucune ville, aucun véhicule, aucun voyage. Vous saisissez directement vos vraies données. Recommandé pour une mise en service.</span>
+                </label>
+                <label class="su-choice" [class.on]="draft.seed === 'demo'">
+                  <input type="radio" name="seed" value="demo" [(ngModel)]="draft.seed" (ngModelChange)="touch()" />
+                  <span class="su-choice-title">Importer un exemple</span>
+                  <span class="su-choice-text">3 villes, 2 itinéraires, 2 véhicules, 1 chauffeur et 3 départs par jour, pour essayer une réservation tout de suite. Les éléments portent la mention « Démo » et se suppriment depuis le back-office.</span>
+                </label>
+              </div>
+            }
+
+            @case ('review') {
+              <dl class="su-review">
+                <div><dt>Société</dt><dd>{{ draft.identity.name || '— à renseigner' }}@if (draft.identity.slogan) { · {{ draft.identity.slogan }} }</dd></div>
+                <div><dt>Contact</dt><dd>{{ draft.contact.email || draft.contact.phones?.[0] || 'Non renseigné (plus tard)' }}</dd></div>
+                <div><dt>Devise et fuseau</dt><dd>{{ draft.locale.currencyCode }} ({{ draft.locale.currencySymbol }}) · {{ draft.locale.timezone }}</dd></div>
+                <div><dt>Langues</dt><dd>{{ draft.locale.enabledLangs.join(', ') }} · par défaut : {{ draft.locale.defaultLang }}</dd></div>
+                <div><dt>Paiements</dt><dd>
+                  @for (p of enabledPayments(); track p.code; let last = $last) { {{ p.name }}{{ p.kind === 'cash' ? '' : (p.mode === 'live' ? ' (production)' : (hasAllSecrets(p) ? ' (test)' : ' (simulé)')) }}{{ last ? '' : ', ' }} }
+                  @empty { Aucun moyen activé }
+                </dd></div>
+                <div><dt>E-mails</dt><dd>{{ draft.notifications.email.enabled ? 'Envoi activé via ' + (draft.notifications.email.host || 'serveur à préciser') : 'Non configurés : les e-mails seront seulement journalisés' }}</dd></div>
+                <div><dt>Verrou de siège</dt><dd>{{ draft.booking.seatHoldMinutes }} min · {{ draft.booking.maxPassengers }} passagers max · frais {{ money(draft.booking.serviceFee) }}</dd></div>
+                <div><dt>Administrateur</dt><dd>{{ (draft.admin.firstName + ' ' + draft.admin.lastName).trim() || '— à renseigner' }} · {{ draft.admin.email || '— e-mail à renseigner' }}@if (draft.twoFactor) { · double authentification }</dd></div>
+                <div><dt>Données de départ</dt><dd>{{ draft.seed === 'demo' ? 'Exemple importé' : 'Application vide' }}</dd></div>
+              </dl>
+              @if (missing().length) {
+                <div class="su-alert" role="alert">
+                  <strong>Il reste à compléter :</strong>
+                  <ul>@for (m of missing(); track m.label) { <li><button type="button" class="su-link" (click)="go(m.step)">{{ m.label }}</button></li> }</ul>
+                </div>
+              } @else {
+                <p class="su-ok">Tout le nécessaire est renseigné. Une fois terminé, cet assistant ne sera plus accessible.</p>
+              }
+            }
+
+            @default {
+              <app-settings-form [group]="$any(current().id)" [model]="$any(draft)[current().id]" [uploader]="uploader"
+                                 [decimals]="draft.locale.currencyDecimals" [currencySymbol]="draft.locale.currencySymbol" (changed)="touch()" />
+            }
+          }
+
+          <div class="su-actions">
+            <button type="button" class="su-btn su-ghost" (click)="go(step() - 1)" [disabled]="step() === 0">Retour</button>
+            <span class="su-spacer"></span>
+            @if (current().id === 'review') {
+              <button type="button" class="su-btn su-primary" (click)="finish()" [disabled]="submitting()">{{ submitting() ? 'Enregistrement…' : 'Terminer la configuration' }}</button>
+            } @else {
+              @if (!current().required) { <button type="button" class="su-btn su-ghost" (click)="later()">Je le ferai plus tard</button> }
+              <button type="button" class="su-btn su-primary" (click)="next()">Continuer</button>
+            }
+          </div>
+        </section>
+
+        <aside class="su-preview" [class.open]="showPreview()" aria-label="Aperçu en direct">
+          <button type="button" class="su-preview-toggle" (click)="showPreview.set(!showPreview())" [attr.aria-expanded]="showPreview()">{{ showPreview() ? 'Masquer l\'aperçu' : 'Voir l\'aperçu en direct' }}</button>
+          <div class="su-preview-body">
+            <p class="su-kicker">Aperçu en direct</p>
+            @let s = sample()!;
+            <div class="pv-site">
+              <div class="pv-brand">
+                @if (draft.identity.logoUrl) { <img [src]="draft.identity.logoUrl" alt="" /> } @else { <span class="pv-mark">{{ s.initials }}</span> }
+                <div>
+                  <div class="pv-name">{{ draft.identity.name || 'Ma Compagnie' }}</div>
+                  @if (draft.identity.slogan) { <div class="pv-slogan">{{ draft.identity.slogan }}</div> }
+                </div>
+              </div>
+              <div class="pv-search"><span>Départ</span><span>Arrivée</span><b>Rechercher</b></div>
+            </div>
+
+            <div class="pv-ticket">
+              <div class="pv-head" [style.background]="s.header">
+                <div class="pv-head-brand">
+                  @if (draft.ticket.showLogo && draft.identity.logoUrl) { <img [src]="draft.identity.logoUrl" alt="" /> }
+                  <span>{{ draft.identity.name || 'Ma Compagnie' }}</span>
+                </div>
+                <div class="pv-ref"><small>Référence</small>{{ s.ref }}</div>
+              </div>
+              <div class="pv-route">
+                <div><small>Départ</small><b>Ville de départ</b><span>{{ s.time }}</span></div>
+                <div class="pv-arrow" aria-hidden="true">→</div>
+                <div class="pv-right"><small>Arrivée</small><b>Ville d'arrivée</b><span>{{ s.date }}</span></div>
+              </div>
+              <div class="pv-row">
+                <div><small>Passager</small><b>Prénom NOM</b></div>
+                <div><small>Siège</small><b>A3</b></div>
+                <div class="pv-right"><small>Prix</small><b>{{ s.price }}</b></div>
+              </div>
+              <div class="pv-foot">
+                <svg class="pv-qr" viewBox="0 0 21 21" aria-hidden="true"><path fill="currentColor" d="M0 0h7v7H0zm1 1v5h5V1zm1 1h3v3H2zM14 0h7v7h-7zm1 1v5h5V1zm1 1h3v3h-3zM0 14h7v7H0zm1 1v5h5v-5zm1 1h3v3H2zM9 0h1v2H9zm2 1h2v1h-2zM8 3h2v1H8zm3 1h1v3h-1zM9 5h1v2H9zM0 8h2v1H0zm3 0h3v1H3zm5 0h1v2H8zm3 0h2v1h-2zm4 0h1v1h-1zm3 0h3v1h-3zM1 10h3v1H1zm5 0h1v2H6zm4 0h3v1h-3zm5 0h2v2h-2zm4 0h2v1h-2zM0 12h2v1H0zm8 0h2v1H8zm10 0h2v1h-2zM9 14h2v1H9zm3 0h1v3h-1zm2 0h3v1h-3zm5 0h2v2h-2zM8 16h2v2H8zm6 0h2v1h-2zm-4 2h2v1h-2zm4 0h4v1h-4zM9 20h4v1H9zm6 0h2v1h-2zm4-1h2v2h-2z"/></svg>
+                <div class="pv-notes">
+                  @for (line of draft.ticket.instructions; track $index) { @if (line) { <p>• {{ line }}</p> } }
+                  @if (draft.booking.baggage.includedKg) { <p>• Bagage inclus : {{ draft.booking.baggage.includedKg }} kg</p> }
+                  @if (s.fee) { <p>• Frais de service : {{ s.fee }}</p> }
+                </div>
+              </div>
+              <div class="pv-legal">
+                @if (draft.legal.ticketLegalNotice) { <p>{{ draft.legal.ticketLegalNotice }}</p> }
+                <p>
+                  @if (draft.identity.legalName) { {{ draft.identity.legalName }} }
+                  @for (r of draft.legal.registrationNumbers; track $index) { @if (r.label && r.value) { · {{ r.label }} {{ r.value }} } }
+                </p>
+                @if (draft.contact.phones?.[0] || draft.contact.email) { <p>{{ draft.contact.phones?.[0] }} {{ draft.contact.email }}</p> }
+                @if (draft.ticket.footerText) { <p class="pv-footer">{{ draft.ticket.footerText }}</p> }
+              </div>
+            </div>
+            <p class="su-help">Exemple fictif. Le vrai billet est un PDF avec un QR code propre à chaque passager.</p>
+          </div>
+        </aside>
+      </main>
+    }
+  }
+</div>

@@ -1,0 +1,570 @@
+<div class="a-fade">
+
+  <!-- ── En-tête ─────────────────────────────────────────────────────────── -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+    <div>
+      <div style="font-size:18px;font-weight:700;color:var(--a-tx1);letter-spacing:-.4px">Gestion des chauffeurs</div>
+      <div class="a-mono" style="font-size:11px;color:var(--a-tx3);margin-top:3px">
+        {{ driverSvc.stats().total }} chauffeurs · {{ driverSvc.stats().active }} en service · {{ driverSvc.stats().assigned }} assignés
+      </div>
+    </div>
+    @if (auth.can('canManageDrivers')) {
+      <button class="a-btn primary sm" (click)="openAdd()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nouveau chauffeur
+      </button>
+    }
+  </div>
+
+  <!-- ── KPI ───────────────────────────────────────────────────────────────── -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin-bottom:18px">
+    <adm-stat label="En service"   [value]="driverSvc.stats().active"    color="a-green" [small]="true" />
+    <adm-stat label="En congé"     [value]="driverSvc.stats().leave"     color="a-cyan"  [small]="true" />
+    <adm-stat label="Suspendus"    [value]="driverSvc.stats().suspended" color="a-amber" [small]="true" />
+    <adm-stat label="Assignés"     [value]="driverSvc.stats().assigned"  color="a-blue"  [small]="true" />
+    <adm-stat label="Note moyenne" [value]="driverSvc.stats().avgRating + ' / 5'" color="a-amber" [small]="true" />
+  </div>
+
+  <!-- ── Alertes permis ────────────────────────────────────────────────────── -->
+  @let expiring = driverSvc.drivers() | expiring;
+  @if (expiring.length > 0) {
+    <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:12px">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--a-amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--a-amber);margin-bottom:4px">
+          {{ expiring.length }} permis expiré{{ expiring.length > 1 ? 's' : '' }} ou à renouveler sous 60 jours
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          @for (d of expiring; track d.id) {
+            <span class="a-mono" style="font-size:10px;padding:2px 8px;border-radius:4px;cursor:pointer"
+                  [style.background]="driverSvc.isLicenseExpired(d) ? 'rgba(239,68,68,.15)' : 'rgba(245,158,11,.15)'"
+                  [style.color]="driverSvc.isLicenseExpired(d) ? 'var(--a-red)' : 'var(--a-amber)'"
+                  (click)="select(d)">
+              {{ driverSvc.fullName(d) }} — exp. {{ d.licenseExpiry }}
+            </span>
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ── Filtres ───────────────────────────────────────────────────────────── -->
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end">
+    <div style="flex:1;min-width:200px;position:relative">
+      <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--a-tx3)"
+           xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="a-input" style="padding-left:32px" placeholder="Nom, téléphone, numéro de permis…"
+             [ngModel]="search()" (ngModelChange)="search.set($event)" />
+    </div>
+
+    <div>
+      <div class="a-mono" style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--a-tx3);margin-bottom:5px">Statut</div>
+      <select class="a-select" [ngModel]="filterStatus()" (ngModelChange)="filterStatus.set($event);selected.set(null)">
+        <option value="all">Tous</option>
+        <option value="active">En service</option>
+        <option value="leave">En congé</option>
+        <option value="suspended">Suspendus</option>
+        <option value="resigned">Démissionnaires</option>
+      </select>
+    </div>
+
+    <div>
+      <div class="a-mono" style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--a-tx3);margin-bottom:5px">Véhicule</div>
+      <select class="a-select" [ngModel]="filterBus()" (ngModelChange)="filterBus.set($event);selected.set(null)">
+        <option value="all">Tous</option>
+        <option value="assigned">Avec véhicule</option>
+        <option value="unassigned">Sans véhicule</option>
+      </select>
+    </div>
+
+    @if (hasFilters()) {
+      <button class="a-btn ghost sm" (click)="clearFilters()" style="align-self:flex-end">
+        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Effacer
+      </button>
+    }
+  </div>
+  <div class="a-mono" style="font-size:10px;color:var(--a-tx3);margin-bottom:12px">
+    {{ filtered().length }} chauffeur{{ filtered().length > 1 ? 's' : '' }}
+  </div>
+
+  <!-- ── Layout liste + détail ─────────────────────────────────────────────── -->
+  <div [style.display]="'grid'"
+       [style.grid-template-columns]="selected() ? '1fr 360px' : '1fr'"
+       style="gap:14px;align-items:start">
+
+    <!-- ── Liste ──────────────────────────────────────────────────────────── -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+      @if (filtered().length === 0) {
+        <div class="a-card" style="text-align:center;padding:48px 24px">
+          <div style="font-size:32px;margin-bottom:12px">🚗</div>
+          <div style="font-size:14px;font-weight:600;color:var(--a-tx1);margin-bottom:6px">Aucun chauffeur trouvé</div>
+          <button class="a-btn ghost sm" (click)="clearFilters()" style="margin-top:8px">Réinitialiser</button>
+        </div>
+      }
+      @for (d of filtered(); track d.id) {
+        <div class="a-card" style="padding:0;overflow:hidden;cursor:pointer;transition:border-color .15s"
+             [style.border-color]="selected()?.id === d.id ? 'var(--a-cyan)' : 'var(--a-border)'"
+             [style.opacity]="d.status === 'resigned' ? '.6' : '1'"
+             (click)="select(d)">
+
+          <!-- Bande statut -->
+          <div style="height:3px" [style.background]="statusColor(d.status)"></div>
+
+          <div style="padding:14px 16px">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+
+              <!-- Identité -->
+              <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:200px">
+                <!-- Avatar initiales -->
+                <div style="width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;letter-spacing:-.5px"
+                     [style.background]="statusBg(d.status)" [style.color]="statusColor(d.status)">
+                  {{ d.firstName[0] }}{{ d.lastName[0] }}
+                </div>
+                <div>
+                  <div style="font-weight:700;font-size:13px;color:var(--a-tx1)">
+                    {{ d.firstName }} {{ d.lastName }}
+                  </div>
+                  <div style="font-size:11px;color:var(--a-tx3);margin-top:2px">{{ d.phone }}</div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
+                    <span class="a-mono"
+                          style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px"
+                          [style.background]="statusBg(d.status)" [style.color]="statusColor(d.status)">
+                      {{ statusLabel(d.status) }}
+                    </span>
+                    @if (d.status === 'leave' && d.leaveUntil) {
+                      <span class="a-mono" style="font-size:9px;color:var(--a-tx3)">
+                        jusqu'au {{ d.leaveUntil }}
+                      </span>
+                    }
+                  </div>
+                </div>
+              </div>
+
+              <!-- Infos permis + véhicule -->
+              <div style="display:grid;grid-template-columns:repeat(3,auto);gap:16px;flex-shrink:0;align-items:start">
+                <div>
+                  <div class="a-mono" style="font-size:8px;text-transform:uppercase;letter-spacing:.5px;color:var(--a-tx3)">Permis</div>
+                  <div class="a-mono" style="font-size:11px;font-weight:700;color:var(--a-tx1);margin-top:2px">{{ d.licenseClass }}</div>
+                  <div class="a-mono" style="font-size:9px;margin-top:1px" [style.color]="licenseExpiryColor(d)">
+                    exp. {{ d.licenseExpiry }}
+                    @if (driverSvc.isLicenseExpired(d)) { ⚠ }
+                    @else if (driverSvc.isLicenseExpiringSoon(d)) { 〜 }
+                  </div>
+                </div>
+                <div>
+                  <div class="a-mono" style="font-size:8px;text-transform:uppercase;letter-spacing:.5px;color:var(--a-tx3)">Véhicule</div>
+                  @if (d.assignedBusId) {
+                    <div style="font-size:11px;font-weight:600;color:var(--a-tx1);margin-top:2px">
+                      {{ busIcon(d.assignedBusId) }} {{ busName(d.assignedBusId) }}
+                    </div>
+                    <div class="a-mono" style="font-size:9px;color:var(--a-cyan);margin-top:1px">{{ busRef(d.assignedBusId) }}</div>
+                  } @else {
+                    <div style="font-size:11px;color:var(--a-amber);margin-top:2px">— Non assigné</div>
+                  }
+                </div>
+                <div>
+                  <div class="a-mono" style="font-size:8px;text-transform:uppercase;letter-spacing:.5px;color:var(--a-tx3)">Note</div>
+                  <div style="font-size:12px;color:var(--a-amber);margin-top:3px">
+                    @if (d.totalTrips > 0) { {{ ratingStars(d.avgRating) }} }
+                    @else { <span style="color:var(--a-tx3);font-size:10px">Nouveau</span> }
+                  </div>
+                  <div class="a-mono" style="font-size:9px;color:var(--a-tx3);margin-top:1px">{{ d.totalTrips }} voyages</div>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              @if (auth.can('canManageDrivers')) {
+                <div style="display:flex;gap:5px;flex-shrink:0" (click)="$event.stopPropagation()">
+                  <button class="a-btn ghost sm" title="Modifier" (click)="openEdit(d, $event)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                  <button class="a-btn ghost sm" title="Statut" (click)="openStatus(d, $event)"
+                          [style.color]="statusColor(d.status)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  </button>
+                  <button class="a-btn ghost sm" title="Assigner véhicule" (click)="openBus(d, $event)"
+                          style="color:var(--a-cyan)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                  </button>
+                </div>
+              }
+            </div>
+
+            <!-- Note suspension -->
+            @if (d.status === 'suspended' && d.notes) {
+              <div style="margin-top:10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.15);border-radius:6px;padding:7px 10px;font-size:10px;color:var(--a-amber)">
+                ⚠ {{ d.notes }}
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- ── Panneau détail ─────────────────────────────────────────────────── -->
+    @if (selected(); as d) {
+      <div class="a-card a-fade" style="position:sticky;top:16px;padding:18px">
+
+        <!-- Header -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0"
+                 [style.background]="statusBg(d.status)" [style.color]="statusColor(d.status)">
+              {{ d.firstName[0] }}{{ d.lastName[0] }}
+            </div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--a-tx1)">{{ d.firstName }} {{ d.lastName }}</div>
+              <span class="a-mono" style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:4px"
+                    [style.background]="statusBg(d.status)" [style.color]="statusColor(d.status)">
+                {{ statusLabel(d.status) }}
+              </span>
+            </div>
+          </div>
+          <button class="a-btn ghost sm" (click)="selected.set(null)" style="padding:4px 6px">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <!-- Coordonnées -->
+        <div class="a-card-title">Coordonnées</div>
+        @for (f of [
+          ['Téléphone', d.phone],
+          ['Email', d.email || '—'],
+          ['Adresse', d.address || '—'],
+          ['Date de naissance', d.birthDate + ' (' + age(d.birthDate) + ' ans)'],
+          ['Ancienneté', seniority(d.hiredAt) + ' (depuis ' + d.hiredAt + ')']
+        ]; track f[0]) {
+          <div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--a-border)">
+            <span style="font-size:10px;color:var(--a-tx3);flex-shrink:0">{{ f[0] }}</span>
+            <span style="font-size:11px;color:var(--a-tx1);text-align:right">{{ f[1] }}</span>
+          </div>
+        }
+
+        <!-- Permis -->
+        <div class="a-card-title" style="margin-top:14px">Permis de conduire</div>
+        @for (f of [
+          ['Numéro', d.licenseNumber],
+          ['Catégorie', 'Classe ' + d.licenseClass],
+          ['Expiration', d.licenseExpiry]
+        ]; track f[0]) {
+          <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--a-border)">
+            <span style="font-size:10px;color:var(--a-tx3)">{{ f[0] }}</span>
+            @if (f[0] === 'Expiration') {
+              <span class="a-mono" style="font-size:11px;font-weight:700" [style.color]="licenseExpiryColor(d)">
+                {{ f[1] }}
+                @if (driverSvc.isLicenseExpired(d))      { — EXPIRÉ ⚠ }
+                @else if (driverSvc.isLicenseExpiringSoon(d)) { — Bientôt }
+              </span>
+            } @else {
+              <span class="a-mono" style="font-size:11px;color:var(--a-tx1)">{{ f[1] }}</span>
+            }
+          </div>
+        }
+
+        <!-- Véhicule assigné -->
+        <div class="a-card-title" style="margin-top:14px">Véhicule assigné</div>
+        @if (d.assignedBusId) {
+          @let bus = fleetSvc.buses() | findBus:d.assignedBusId;
+          @if (bus) {
+            <div style="background:var(--a-bg3);border-radius:8px;padding:10px 12px;margin-bottom:12px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:20px">{{ busIcon(d.assignedBusId) }}</span>
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:var(--a-tx1)">{{ bus.name }}</div>
+                  <div class="a-mono" style="font-size:10px;color:var(--a-cyan)">{{ bus.ref }}</div>
+                  <div class="a-mono" style="font-size:9px;color:var(--a-tx3)">{{ bus.plateNumber }}</div>
+                </div>
+              </div>
+            </div>
+          }
+        } @else {
+          <div style="font-size:11px;color:var(--a-amber);font-style:italic;margin-bottom:12px">Aucun véhicule assigné</div>
+        }
+
+        <!-- Statistiques -->
+        <div class="a-card-title">Performances</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+          <div style="background:var(--a-bg3);border-radius:8px;padding:8px;text-align:center">
+            <div class="a-mono" style="font-size:16px;font-weight:700;color:var(--a-cyan)">{{ d.totalTrips }}</div>
+            <div style="font-size:8px;color:var(--a-tx3);margin-top:2px">Voyages</div>
+          </div>
+          <div style="background:var(--a-bg3);border-radius:8px;padding:8px;text-align:center">
+            <div class="a-mono" style="font-size:16px;font-weight:700;color:var(--a-green)">
+              {{ d.totalKm >= 1000 ? (d.totalKm/1000).toFixed(0) + 'k' : d.totalKm }}
+            </div>
+            <div style="font-size:8px;color:var(--a-tx3);margin-top:2px">km total</div>
+          </div>
+          <div style="background:var(--a-bg3);border-radius:8px;padding:8px;text-align:center">
+            @if (d.totalTrips > 0) {
+              <div style="font-size:14px;color:var(--a-amber)">{{ ratingStars(d.avgRating) }}</div>
+              <div class="a-mono" style="font-size:10px;font-weight:700;color:var(--a-amber)">{{ d.avgRating }}/5</div>
+            } @else {
+              <div style="font-size:10px;color:var(--a-tx3);margin-top:8px">—</div>
+              <div style="font-size:8px;color:var(--a-tx3);margin-top:2px">Note</div>
+            }
+          </div>
+        </div>
+
+        <!-- Notes -->
+        @if (d.notes) {
+          <div style="background:var(--a-bg3);border-radius:7px;padding:9px 12px;margin-bottom:12px;font-size:11px;color:var(--a-tx2);font-style:italic">
+            {{ d.notes }}
+          </div>
+        }
+
+        <!-- Congé info -->
+        @if (d.status === 'leave') {
+          <div style="background:rgba(6,182,212,.07);border:1px solid rgba(6,182,212,.18);border-radius:7px;padding:9px 12px;margin-bottom:12px">
+            <div style="font-size:11px;font-weight:600;color:var(--a-cyan);margin-bottom:3px">En congé</div>
+            @if (d.leaveReason) { <div style="font-size:10px;color:var(--a-tx2)">{{ d.leaveReason }}</div> }
+            @if (d.leaveUntil)  { <div class="a-mono" style="font-size:10px;color:var(--a-cyan);margin-top:3px">
+              Retour prévu le {{ d.leaveUntil }} ({{ driverSvc.daysUntilLeaveEnd(d) }}j)
+            </div> }
+          </div>
+        }
+
+        <!-- Actions -->
+        @if (auth.can('canManageDrivers')) {
+          <div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--a-border);padding-top:14px;margin-top:4px">
+            <button class="a-btn ghost sm" style="width:100%;justify-content:center" (click)="openEdit(d, $event)">
+              Modifier les informations
+            </button>
+            <button class="a-btn ghost sm" style="width:100%;justify-content:center;color:var(--a-cyan)" (click)="openBus(d, $event)">
+              {{ d.assignedBusId ? 'Changer le véhicule' : 'Assigner un véhicule' }}
+            </button>
+            <button class="a-btn ghost sm" style="width:100%;justify-content:center" (click)="openStatus(d, $event)"
+                    [style.color]="statusColor(d.status)">Changer le statut</button>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODALES                                                                    -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+@if (modal() !== null) {
+  <div class="a-overlay" (click)="closeModal()">
+    <div class="a-modal a-fade" style="max-width:580px" (click)="$event.stopPropagation()">
+
+      <!-- ── Modal Ajouter / Modifier ─────────────────────────────────────── -->
+      @if (modal() === 'add' || modal() === 'edit') {
+        <div class="a-modal-header">
+          <div class="a-modal-title">{{ modal() === 'add' ? 'Nouveau chauffeur' : 'Modifier le chauffeur' }}</div>
+          <button class="a-btn ghost sm" (click)="closeModal()" style="padding:4px 8px">✕</button>
+        </div>
+        <div class="a-modal-body">
+
+          <!-- Nom -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div>
+              <label class="a-form-label">Prénom *</label>
+              <input class="a-input" placeholder="Jean" [(ngModel)]="form.firstName" />
+            </div>
+            <div>
+              <label class="a-form-label">Nom *</label>
+              <input class="a-input" placeholder="RAZAFY" [(ngModel)]="form.lastName" style="text-transform:uppercase" />
+            </div>
+          </div>
+
+          <!-- Contact -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div>
+              <label class="a-form-label">Téléphone *</label>
+              <input class="a-input" placeholder="034 12 345 67" [(ngModel)]="form.phone" />
+            </div>
+            <div>
+              <label class="a-form-label">Email</label>
+              <input class="a-input" type="email" placeholder="nom@exemple.com" [(ngModel)]="form.email" />
+            </div>
+          </div>
+
+          <!-- Compte de connexion -->
+          <div style="margin-bottom:14px">
+            <label class="a-form-label">Compte de connexion <span style="font-weight:400;color:var(--a-tx3)">(pour que le chauffeur consulte son planning)</span></label>
+            <select class="a-select" style="width:100%" [(ngModel)]="form.userId">
+              <option value="">— Aucun compte relié —</option>
+              @for (a of accountChoices(); track a.id) { <option [value]="a.id">{{ a.firstName }} {{ a.lastName }} · {{ a.email }}</option> }
+            </select>
+            <div style="font-size:10px;color:var(--a-tx3);margin-top:4px">Créez d'abord le compte avec le rôle « Chauffeur » dans Utilisateurs → Comptes internes.</div>
+          </div>
+
+          <!-- Permis -->
+          <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;margin-bottom:14px;align-items:end">
+            <div>
+              <label class="a-form-label">N° de permis *</label>
+              <input class="a-input" placeholder="MG-D-123456" [(ngModel)]="form.licenseNumber" style="text-transform:uppercase" />
+            </div>
+            <div>
+              <label class="a-form-label">Classe</label>
+              <select class="a-select" [(ngModel)]="form.licenseClass">
+                @for (l of licenseClasses; track l) { <option [value]="l">Classe {{ l }}</option> }
+              </select>
+            </div>
+            <div>
+              <label class="a-form-label">Expiration *</label>
+              <input class="a-input" type="date" [(ngModel)]="form.licenseExpiry" />
+            </div>
+          </div>
+
+          <!-- Naissance + adresse -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div>
+              <label class="a-form-label">Date de naissance *</label>
+              <input class="a-input" type="date" [(ngModel)]="form.birthDate" />
+            </div>
+            <div>
+              <label class="a-form-label">Adresse</label>
+              <input class="a-input" placeholder="Lot…, Antananarivo" [(ngModel)]="form.address" />
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div>
+            <label class="a-form-label">Notes internes</label>
+            <textarea class="a-input" rows="2" style="resize:vertical;min-height:56px"
+                      [(ngModel)]="form.notes"></textarea>
+          </div>
+        </div>
+        <div class="a-modal-footer">
+          <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+          <button class="a-btn primary sm" (click)="submitForm()">
+            {{ modal() === 'add' ? 'Ajouter' : 'Enregistrer' }}
+          </button>
+        </div>
+      }
+
+      <!-- ── Modal Statut ─────────────────────────────────────────────────── -->
+      @if (modal() === 'status') {
+        <div class="a-modal-header">
+          <div class="a-modal-title">Changer le statut</div>
+          <button class="a-btn ghost sm" (click)="closeModal()" style="padding:4px 8px">✕</button>
+        </div>
+        <div class="a-modal-body">
+          @if (modalDriver(); as d) {
+            <div style="background:var(--a-bg3);border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+              <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0"
+                   [style.background]="statusBg(d.status)" [style.color]="statusColor(d.status)">
+                {{ d.firstName[0] }}{{ d.lastName[0] }}
+              </div>
+              <div style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ d.firstName }} {{ d.lastName }}</div>
+              <span class="a-mono" style="margin-left:auto;font-size:9px;padding:2px 8px;border-radius:4px"
+                    [style.background]="statusBg(d.status)" [style.color]="statusColor(d.status)">
+                {{ statusLabel(d.status) }}
+              </span>
+            </div>
+          }
+
+          <label class="a-form-label">Nouveau statut</label>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+            @for (s of [
+              {val:'active',   label:'En service',       desc:'Chauffeur disponible et opérationnel',       color:'var(--a-green)'},
+              {val:'leave',    label:'En congé',          desc:'Absence temporaire planifiée',               color:'var(--a-cyan)'},
+              {val:'suspended',label:'Suspendu',          desc:'Indisponible pour raison disciplinaire ou administrative', color:'var(--a-amber)'},
+              {val:'resigned', label:'Démissionnaire',    desc:'A quitté l\'entreprise définitivement',      color:'var(--a-red)'}
+            ]; track s.val) {
+              <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid;transition:all .15s"
+                     [style.border-color]="statusForm.status === s.val ? s.color : 'var(--a-border)'"
+                     [style.background]="statusForm.status === s.val ? 'rgba(0,0,0,.12)' : 'var(--a-bg3)'">
+                <input type="radio" name="driverStatus" [value]="s.val" [(ngModel)]="statusForm.status"
+                       style="accent-color:var(--a-cyan);margin-top:2px;flex-shrink:0" />
+                <div>
+                  <div style="font-size:12px;font-weight:600" [style.color]="s.color">{{ s.label }}</div>
+                  <div style="font-size:10px;color:var(--a-tx3);margin-top:1px">{{ s.desc }}</div>
+                </div>
+              </label>
+            }
+          </div>
+
+          @if (statusForm.status === 'leave') {
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+              <div>
+                <label class="a-form-label">Raison *</label>
+                <input class="a-input" placeholder="Congé annuel, maladie…" [(ngModel)]="statusForm.leaveReason" />
+              </div>
+              <div>
+                <label class="a-form-label">Retour prévu</label>
+                <input class="a-input" type="date" [min]="minDate" [(ngModel)]="statusForm.leaveUntil" />
+              </div>
+            </div>
+          }
+          @if (statusForm.status === 'suspended') {
+            <div style="margin-bottom:12px">
+              <label class="a-form-label">Motif de la suspension</label>
+              <textarea class="a-input" rows="2" style="resize:vertical" [(ngModel)]="statusForm.notes"></textarea>
+            </div>
+          }
+        </div>
+        <div class="a-modal-footer">
+          <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+          <button class="a-btn primary sm" (click)="submitStatus()">Confirmer</button>
+        </div>
+      }
+
+      <!-- ── Modal Véhicule ───────────────────────────────────────────────── -->
+      @if (modal() === 'bus') {
+        <div class="a-modal-header">
+          <div class="a-modal-title">Assigner un véhicule</div>
+          <button class="a-btn ghost sm" (click)="closeModal()" style="padding:4px 8px">✕</button>
+        </div>
+        <div class="a-modal-body">
+          @if (modalDriver(); as d) {
+            <div style="background:var(--a-bg3);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;font-weight:700;color:var(--a-tx1)">
+              {{ d.firstName }} {{ d.lastName }}
+            </div>
+          }
+
+          <!-- Aucun véhicule -->
+          <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid;margin-bottom:8px;transition:all .15s"
+                 [style.border-color]="selectedBusId === null ? 'var(--a-red)' : 'var(--a-border)'"
+                 [style.background]="selectedBusId === null ? 'rgba(239,68,68,.06)' : 'var(--a-bg3)'">
+            <input type="radio" name="busAssign" [value]="null" [(ngModel)]="selectedBusId"
+                   style="accent-color:var(--a-cyan);flex-shrink:0" />
+            <span style="font-size:12px;color:var(--a-tx2)">— Aucun véhicule (désassigner)</span>
+          </label>
+
+          <!-- Liste des véhicules actifs -->
+          <div style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto">
+            @for (b of fleetSvc.buses(); track b.id) {
+              @if (b.status !== 'retired') {
+                @let otherDriver = driverSvc.driverOfBus(b.id);
+                @let isTaken = otherDriver !== null && otherDriver?.id !== modalDriver()?.id;
+                <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid;transition:all .15s"
+                       [style.border-color]="selectedBusId === b.id ? 'var(--a-cyan)' : 'var(--a-border)'"
+                       [style.background]="selectedBusId === b.id ? 'rgba(6,182,212,.07)' : 'var(--a-bg3)'"
+                       [style.opacity]="isTaken ? '.5' : '1'">
+                  <input type="radio" name="busAssign" [value]="b.id" [(ngModel)]="selectedBusId"
+                         [disabled]="isTaken" style="accent-color:var(--a-cyan);flex-shrink:0" />
+                  <div style="flex:1">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                      <span style="font-size:16px">{{ b.vehicleLayout === 'bus' ? '🚌' : b.vehicleLayout === 'minibus16' ? '🚐' : '⭐' }}</span>
+                      <span style="font-size:12px;font-weight:600;color:var(--a-tx1)">{{ b.name }}</span>
+                      <span class="a-mono" style="font-size:9px;color:var(--a-cyan)">{{ b.ref }}</span>
+                      <span class="a-mono" style="font-size:9px;padding:1px 5px;border-radius:3px"
+                            [style.background]="b.status === 'active' ? 'rgba(16,185,129,.1)' : 'rgba(245,158,11,.1)'"
+                            [style.color]="b.status === 'active' ? 'var(--a-green)' : 'var(--a-amber)'">
+                        {{ b.status === 'active' ? 'Actif' : 'Maintenance' }}
+                      </span>
+                    </div>
+                    @if (isTaken && otherDriver) {
+                      <div style="font-size:10px;color:var(--a-amber);margin-top:3px">
+                        Déjà assigné à {{ otherDriver.firstName }} {{ otherDriver.lastName }}
+                      </div>
+                    }
+                  </div>
+                </label>
+              }
+            }
+          </div>
+        </div>
+        <div class="a-modal-footer">
+          <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+          <button class="a-btn primary sm" (click)="submitBus()">Confirmer l'assignation</button>
+        </div>
+      }
+
+    </div>
+  </div>
+}

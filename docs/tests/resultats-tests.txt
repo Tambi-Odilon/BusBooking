@@ -1,0 +1,331 @@
+
+> bus-booking-backend@1.0.0 test
+> NODE_OPTIONS="--experimental-vm-modules --no-warnings" jest --runInBand --verbose
+
+PASS test/concurrency/01-concurrency.spec.ts (16.353 s)
+  Concurrence
+    ✓ 300 clients cliquent sur le même siège au même instant : un seul obtient le verrou (1070 ms)
+    ✓ 200 parcours complets simultanés (verrou → réservation → paiement) sur le même siège : une seule vente (726 ms)
+    ✓ sélections qui se croisent (A1+A2 contre A2+A1, etc.) : tout ou rien, aucun interblocage, aucun siège orphelin (471 ms)
+    ✓ ouverture des ventes d'un départ populaire : 600 clients pour 16 places, exactement 16 billets vendus (4908 ms)
+    ✓ guichet et vente en ligne en même temps sur les mêmes sièges : chaque siège est vendu une seule fois (697 ms)
+    ✓ 100 clics simultanés sur « Réserver » avec la même clé d'idempotence : une seule réservation (214 ms)
+    ✓ 100 clics simultanés sur « Réserver » avec des clés différentes (deux onglets, rafraîchissement) : une seule réservation active (879 ms)
+    ✓ 60 clics simultanés sur « Payer » : le téléphone du client n'est sollicité qu'une fois (196 ms)
+    ✓ le même callback de paiement reçu 80 fois en parallèle : une confirmation, un seul jeu de billets, un seul e-mail (202 ms)
+    ✓ paiement tardif et revente du siège au même instant : jamais deux gagnants, le perdant est remboursé (1047 ms)
+    ✓ tâche d'expiration et nouveaux clients en même temps : le siège expiré est repris une seule fois (248 ms)
+    ✓ annulation du voyage pendant que des clients achètent : aucun billet valide ne subsiste, tout encaissement est remboursé (150 ms)
+    ✓ remplacement du véhicule pendant des achats : aucun passager perdu, aucun siège en double (287 ms)
+    ✓ deux annulations et un changement de siège simultanés sur la même réservation : un seul remboursement (56 ms)
+    ✓ deux comptes créés en même temps avec le même e-mail : un seul compte (563 ms)
+    ✓ refresh token utilisé deux fois en parallèle (deux onglets) : pas de déconnexion intempestive, jamais deux familles de sessions (63 ms)
+    ✓ deux voyages créés en même temps pour le même véhicule sur le même créneau : un seul est accepté (contrainte de la base) (130 ms)
+    ✓ journal d'audit écrit par 150 actions simultanées : la chaîne de hachage reste intacte (386 ms)
+    ✓ délestage : si la base est saturée le serveur répond 503 + Retry-After, sans s'effondrer, puis se rétablit (2247 ms)
+    ✓ résumé (1 ms)
+
+PASS test/integration/06-admin-security.spec.ts (8.236 s)
+  Administration, notifications, temps réel et protections
+    Journal d'audit inaltérable
+      ✓ les actions sensibles sont journalisées avec leur auteur et le détail avant/après (14 ms)
+      ✓ impossible de modifier, supprimer ou vider le journal, même en SQL direct (36 ms)
+      ✓ chaîne de hachage : intacte par défaut, une falsification en contournant les déclencheurs est détectée (13 ms)
+      ✓ chaque employé consulte ses propres actions, pas celles des autres (80 ms)
+    E-mails réels (SMTP) et SMS
+      ✓ sans serveur configuré : les messages sont marqués « simulés », rien n'est perdu (66 ms)
+      ✓ envoi réel par SMTP : e-mail au nom de la société, billet PDF en pièce jointe, mot de passe SMTP chiffré (1130 ms)
+      ✓ serveur SMTP en panne : nouvel essai automatique avec délai croissant, abandon après 5 essais, relance manuelle (2290 ms)
+      ✓ test SMTP avec de mauvais identifiants : message d'erreur lisible (120 ms)
+      ✓ SMS : mode simulé tant qu'aucune passerelle n'est configurée (69 ms)
+    Temps réel (Socket.IO)
+      ✓ tous les écrans qui regardent un voyage (client, guichet, admin) voient le siège changer en direct (590 ms)
+      ✓ expiration d'un verrou : diffusée à tous par la tâche de nettoyage (16 ms)
+      ✓ l'invité suit sa réservation avec son jeton ; sans jeton il ne reçoit rien (840 ms)
+      ✓ les alertes du back-office ne partent pas vers les clients ; un jeton invalide n'ouvre aucun salon privé (859 ms)
+      ✓ changement de rôle et révocation de session poussés en direct vers le compte concerné (98 ms)
+      ✓ reprise après coupure : à la reconnexion, l'état complet est relu par l'API (les événements ne sont pas la source de vérité) (32 ms)
+    Publicités, tableau de bord, rapports
+      ✓ publicités : planification par dates et par page, statistiques de vues et de clics (41 ms)
+      ✓ tableau de bord et rapport de revenus cohérents avec les encaissements réels (remboursements déduits) (14 ms)
+      ✓ un compte sans droit sur les finances voit le tableau de bord sans les montants (84 ms)
+      ✓ export CSV : neutralise les formules de tableur (injection CSV) (39 ms)
+    Pagination partout
+      ✓ toutes les listes sont paginées et plafonnées (54 ms)
+      ✓ recherche et filtres des réservations (19 ms)
+    Données invalides et attaques courantes
+      ✓ injection SQL : traitée comme du texte, aucune table touchée (21 ms)
+      ✓ XSS stocké : un nom contenant du HTML est stocké tel quel, renvoyé en JSON, et échappé dans les e-mails et le PDF (19 ms)
+      ✓ champs inconnus, mauvais types, valeurs hors bornes : 400 avec le détail du champ fautif (10 ms)
+      ✓ doublons refusés proprement : immatriculation, itinéraire, permis (6 ms)
+      ✓ JSON mal formé, corps trop volumineux, méthode ou route inconnue (15 ms)
+      ✓ envoi de fichier : le type est vérifié sur le contenu ; SVG, HTML et exécutables refusés ; pas de traversée de chemin (66 ms)
+      ✓ en-têtes de sécurité présents, aucune mise en cache des réponses de l'API (6 ms)
+      ✓ réponses compressées (gzip/brotli) pour les listes volumineuses (10 ms)
+    Supervision
+      ✓ contrôles de santé (4 ms)
+      ✓ métriques Prometheus protégées par un jeton (9 ms)
+      ✓ tâches planifiées : une seule instance exécute une tâche à la fois (verrou), et elles sont rejouables (212 ms)
+      ✓ purge : les données techniques périmées sont supprimées, les anciennes réservations anonymisées après la durée de conservation (63 ms)
+
+PASS test/integration/05-operations.spec.ts
+  Exploitation : guichet, annulations, modifications, voyages
+    Vente au guichet
+      ✓ espèces : réservation, encaissement et billets en une seule opération (41 ms)
+      ✓ montant reçu insuffisant : vente refusée, rien n'est enregistré (11 ms)
+      ✓ siège déjà vendu ou retenu par un client web : refus net, aucune vente partielle (37 ms)
+      ✓ le guichet retient les sièges comme un client, puis vend avec son verrou (36 ms)
+      ✓ double clic sur « Encaisser » : une seule vente (116 ms)
+      ✓ paiement mobile au guichet : réservation en attente puis confirmation par l'opérateur (53 ms)
+      ✓ création du compte client au guichet : sans mot de passe, le client le choisira lui-même (112 ms)
+      ✓ manifeste des passagers et invariant (9 ms)
+    Annulation et remboursement
+      ✓ annulation totale par le client : billets remboursés, frais de service conservés (politique par défaut) (71 ms)
+      ✓ annulation d'un seul passager : remboursement partiel, les autres billets restent valables (91 ms)
+      ✓ délai d'annulation dépassé : refus pour le client, toujours possible au guichet (56 ms)
+      ✓ seul un compte habilité peut imposer un pourcentage de remboursement (178 ms)
+      ✓ un passager déjà embarqué ne peut pas être annulé (55 ms)
+      ✓ politique paramétrable : annulation en ligne désactivée, ou remboursement à 80 % frais compris (96 ms)
+      ✓ abandon avant paiement : annulation sans remboursement, sièges libérés (34 ms)
+    Modification d'une réservation
+      ✓ changement de siège sur le même départ : l'ancien siège est libéré, le nouveau billet est renvoyé (67 ms)
+      ✓ siège visé déjà pris : refus, la réservation d'origine reste intacte (94 ms)
+      ✓ deux passagers d'une même réservation échangent leurs sièges (58 ms)
+      ✓ changement de départ au même prix : sièges pris sur le nouveau, rendus sur l'ancien (59 ms)
+      ✓ départ plus cher : le client est renvoyé au guichet, qui encaisse le complément (69 ms)
+      ✓ départ moins cher : la différence est remboursée (79 ms)
+      ✓ le client ne peut pas changer d'itinéraire ni modifier après le délai (93 ms)
+    Annulation d'un voyage
+      ✓ toutes les réservations sont annulées et intégralement remboursées, les passagers prévenus, les sièges fermés (162 ms)
+      ✓ un voyage commencé ne peut plus être annulé (38 ms)
+    Remplacement du véhicule (plan de sièges différent)
+      ✓ bus 48 → minibus 16 : sièges communs conservés, les autres replacés, passagers prévenus (173 ms)
+      ✓ véhicule trop petit : les passagers sans siège sont signalés « à traiter », jamais supprimés en silence (203 ms)
+      ✓ véhicule déjà pris sur le créneau, en maintenance ou inconnu : refus, rien ne change (106 ms)
+    Itinéraire suspendu, chauffeur absent
+      ✓ suspension : ventes fermées, billets déjà vendus conservés ; réactivation : ventes rouvertes (140 ms)
+      ✓ fin de suspension automatique à la date prévue (48 ms)
+      ✓ chauffeur en congé : alerte sur ses voyages, les voyages restent vendus et les passagers ne sont pas impactés (129 ms)
+      ✓ planning chauffeur : un chauffeur ne voit que ses propres voyages (134 ms)
+    Voyages programmés, récurrence et conflits de véhicule
+      ✓ modèle quotidien : génère un voyage par jour sur l'horizon de vente, sans doublon si on régénère (58 ms)
+      ✓ jours ouvrés uniquement, tarif propre au type de véhicule (51 ms)
+      ✓ un véhicule ne peut pas faire deux voyages qui se chevauchent (garanti par la base) (70 ms)
+      ✓ voyage de nuit qui passe minuit : rattaché à la date de départ, le véhicule est bloqué jusqu'à l'arrivée le lendemain (121 ms)
+      ✓ modification d'un modèle : les voyages déjà vendus sont conservés, les autres recréés (132 ms)
+      ✓ véhicule en maintenance : pas de nouveaux voyages générés, conflit signalé (41 ms)
+    Absence (no-show) et clôture des voyages
+      ✓ no-show marqué au guichet : pas de remboursement par défaut (81 ms)
+      ✓ clôture automatique : départ → en cours (verrous supprimés), arrivée → terminé, réservations terminées (82 ms)
+      ✓ rappel avant le départ : envoyé une seule fois aux réservations confirmées (104 ms)
+
+PASS test/integration/02-auth-security.spec.ts (6.799 s)
+  Authentification, sessions et permissions
+    Comptes clients
+      ✓ inscription : mot de passe haché côté serveur (Argon2id), jamais renvoyé (53 ms)
+      ✓ refuse un e-mail déjà utilisé (insensible à la casse) et un mot de passe faible (6 ms)
+      ✓ connexion, profil, modification du profil (60 ms)
+      ✓ mauvais mot de passe et compte inexistant donnent la même réponse (pas d'énumération) (127 ms)
+      ✓ un compte client ne peut pas se connecter au back-office, ni l'inverse (86 ms)
+      ✓ mot de passe oublié : même réponse que le compte existe ou non, lien à usage unique, sessions révoquées (171 ms)
+      ✓ export et suppression (anonymisation) des données personnelles (209 ms)
+    Sessions
+      ✓ jeton d'accès court (15 min), signé, refusé s'il est falsifié, expiré ou signé avec une autre clé (45 ms)
+      ✓ renouvellement : le refresh token tourne à chaque usage (67 ms)
+      ✓ deux onglets qui renouvellent en même temps : pas de déconnexion intempestive (51 ms)
+      ✓ vol de refresh token : la réutilisation d'un jeton déjà tourné révoque toute la famille de sessions (59 ms)
+      ✓ plusieurs appareils : liste, déconnexion d'un appareil à distance, déconnexion simple (90 ms)
+      ✓ on ne peut pas révoquer la session d'un autre utilisateur (82 ms)
+      ✓ session expirée côté serveur : refusée même si le jeton d'accès est encore valide (45 ms)
+      ✓ changement de mot de passe : les autres appareils sont déconnectés, pas l'appareil courant (199 ms)
+    Force brute
+      ✓ verrouillage après trop d'échecs, même avec le bon mot de passe ensuite ; un autre compte n'est pas touché (437 ms)
+      ✓ limitation de débit par adresse IP sur la connexion (429 + Retry-After) (840 ms)
+    Double authentification (TOTP)
+      ✓ activation : il faut prouver que l'application d'authentification fonctionne (413 ms)
+      ✓ connexion en deux étapes : mot de passe puis code (51 ms)
+      ✓ code de secours : utilisable une seule fois (103 ms)
+      ✓ 5 codes faux invalident le défi (pas de force brute sur 6 chiffres) (65 ms)
+      ✓ rôle pour lequel la double authentification est obligatoire : accès bloqué tant qu'elle n'est pas activée (444 ms)
+    Rôles et permissions vérifiés côté serveur
+      ✓ TOUTES les routes d'administration refusent un visiteur et un client (373 ms)
+      ✓ chaque rôle intégré n'accède qu'à ce que ses permissions autorisent (542 ms)
+      ✓ la vente au guichet exige la permission dédiée (corrige la route /admin/walkin sans garde du frontend d'origine) (200 ms)
+      ✓ changement de rôle en cours de session : effet immédiat, le jeton en cours est refusé (98 ms)
+      ✓ modification des permissions d'un rôle : appliquée immédiatement à tous les comptes de ce rôle (105 ms)
+      ✓ rôle personnalisé : création, attribution, suppression refusée tant qu'il est utilisé (104 ms)
+      ✓ garde-fous : pas d'auto-promotion, pas d'auto-suppression, toujours au moins un administrateur (10 ms)
+      ✓ compte suspendu : toutes ses sessions sont coupées et la connexion est refusée (124 ms)
+      ✓ compte interne créé sans mot de passe : lien d'activation à usage unique envoyé par e-mail (96 ms)
+
+PASS test/integration/03-booking-flow.spec.ts
+  Parcours de réservation
+    Recherche
+      ✓ ne propose que des voyages réellement programmés (plus d'horaires fictifs) (20 ms)
+      ✓ la recherche est insensible à la casse et valide ses paramètres (13 ms)
+      ✓ villes et itinéraires populaires viennent de la base (12 ms)
+      ✓ plan de sièges servi par le serveur (12 ms)
+    Verrou temporaire des sièges
+      ✓ sélection : le siège passe « retenu » pour les autres, « à moi » pour son propriétaire (41 ms)
+      ✓ un autre client ne peut pas prendre un siège retenu ; tout ou rien sur une sélection multiple (22 ms)
+      ✓ modifier sa sélection libère les sièges retirés et garde le même délai (40 ms)
+      ✓ prolongation : une fois (paramétrable), puis refusée (20 ms)
+      ✓ abandon explicite et fermeture de page (sendBeacon) libèrent immédiatement (25 ms)
+      ✓ expiration automatique : un verrou expiré est libre tout de suite, même avant le passage de la tâche de nettoyage (38 ms)
+      ✓ la tâche de nettoyage supprime les verrous expirés et seulement eux (16 ms)
+      ✓ refuse un siège qui n'existe pas dans ce véhicule et une sélection trop grande (10 ms)
+    Réservation et paiement
+      ✓ parcours invité complet : le prix est calculé par le serveur, le billet est émis après paiement (68 ms)
+      ✓ le client ne peut pas imposer un prix, un statut ou un identifiant (champs inconnus refusés) (12 ms)
+      ✓ les passagers doivent correspondre exactement aux sièges retenus (24 ms)
+      ✓ retour en arrière puis nouvelle validation : l'ancienne réservation en attente est remplacée, pas dupliquée (50 ms)
+      ✓ client connecté : la réservation est rattachée à son compte et apparaît dans son historique (131 ms)
+      ✓ réservation faite en invité rattachée au compte créé ensuite avec le même e-mail (87 ms)
+      ✓ paiement refusé par l'opérateur : la réservation reste payable, un nouvel essai réussit (66 ms)
+      ✓ le lancement du paiement prolonge le verrou : le siège ne peut pas être repris pendant la validation sur le téléphone (41 ms)
+      ✓ moyen de paiement désactivé, inconnu ou réservé au guichet : refusé (30 ms)
+      ✓ réservation déjà payée ou expirée : aucun nouveau paiement possible (72 ms)
+    Accès à une réservation
+      ✓ sans jeton, avec un mauvais jeton ou depuis un autre compte : 404 (pas d'énumération des références) (42 ms)
+      ✓ « retrouver mon billet » : référence + téléphone de contact, quel que soit le format du numéro (7 ms)
+      ✓ billet PDF généré par le serveur, avec le nom de la société configurée (500 ms)
+      ✓ QR codes générés par le serveur (plus de service externe) (238 ms)
+      ✓ renvoi du billet par e-mail à une autre adresse (11 ms)
+    Contrôle des billets à l'embarquement
+      ✓ billet valide → embarqué ; second scan → déjà utilisé ; faux QR → rejeté (162 ms)
+      ✓ billet d'un autre départ, billet annulé, réservation non payée (202 ms)
+      ✓ un client ne peut pas valider des billets (53 ms)
+    Règles de vente
+      ✓ vente en ligne fermée 30 min avant le départ ; le guichet vend jusqu'au départ (132 ms)
+      ✓ ouverture programmée des ventes d'un départ (42 ms)
+      ✓ réservation sans compte désactivable dans les paramètres (78 ms)
+      ✓ tarification configurable : frais par siège, tarif enfant, taxe en sus (82 ms)
+      ✓ invariant final : aucun siège vendu deux fois sur le voyage de test (1 ms)
+
+PASS test/integration/04-payments.spec.ts
+  Paiements : idempotence, callbacks et rapprochement
+    Idempotence (clics multiples, rafraîchissement, nouvel essai réseau)
+      ✓ l'en-tête Idempotency-Key est obligatoire sur la réservation et le paiement (34 ms)
+      ✓ même clé + même contenu → la même réservation, créée une seule fois (35 ms)
+      ✓ même clé + contenu différent → 422 (31 ms)
+      ✓ une requête en échec ne bloque pas la clé : le nouvel essai est rejoué (6 ms)
+      ✓ paiement : le double clic ne sollicite pas deux fois le téléphone du client (60 ms)
+      ✓ changer de moyen de paiement remplace la demande précédente (53 ms)
+    Callbacks des opérateurs
+      ✓ callback de succès signé → réservation confirmée, billets émis (48 ms)
+      ✓ callback reçu en double (même événement) → traité une seule fois, réponse 200 (50 ms)
+      ✓ deux callbacks de succès distincts (l'opérateur renvoie) → une seule confirmation, aucun remboursement (62 ms)
+      ✓ callbacks dans le désordre : un « échec » ou « en attente » arrivé APRÈS le succès ne défait rien (61 ms)
+      ✓ callbacks dans le désordre : un succès arrivé APRÈS un échec est honoré (l'argent a été débité) (48 ms)
+      ✓ callback non signé, signature d'URL fausse, paiement inconnu, référence incohérente : rejetés sans effet (51 ms)
+      ✓ le statut d'un paiement n'est visible que par le titulaire de la réservation (76 ms)
+    Callback jamais reçu : rapprochement périodique
+      ✓ la tâche de rapprochement interroge l'opérateur et confirme (56 ms)
+      ✓ opérateur muet : nouvelles tentatives espacées (15 s, 30 s, 1 min, 2 min, 5 min, puis 15 min), abandon après 24 h (95 ms)
+      ✓ serveur arrêté entre l'enregistrement et l'appel à l'opérateur : le paiement jamais transmis est clos (44 ms)
+      ✓ panne de l'opérateur pendant le rapprochement : rien n'est perdu, nouvel essai dans 60 s (48 ms)
+      ✓ panne de l'opérateur au lancement du paiement : message clair, siège conservé, nouvel essai possible (48 ms)
+    Paiement confirmé APRÈS l'expiration du verrou
+      ✓ siège encore libre → la réservation est confirmée quand même (64 ms)
+      ✓ siège encore retenu par un verrou expiré non nettoyé → confirmé aussi (40 ms)
+      ✓ siège revendu entre-temps → JAMAIS de double vente : remboursement automatique et notification (117 ms)
+      ✓ voyage annulé pendant que le client payait → remboursement automatique (88 ms)
+      ✓ client qui paie deux fois (deux moyens de paiement validés) → le doublon est remboursé (87 ms)
+    Remboursements
+      ✓ espèces : jamais automatique, mis dans la file « à rembourser au guichet » puis clos par un compte habilité (205 ms)
+      ✓ on ne rembourse jamais plus que ce qui a été encaissé (81 ms)
+      ✓ opérateur en panne pendant un remboursement : 5 essais, puis traitement manuel (74 ms)
+
+PASS test/integration/01-setup-config.spec.ts
+  Assistant de première configuration et marque blanche
+    ✓ base vide : l'application se déclare non configurée, avec un nom neutre (28 ms)
+    ✓ l'état de l'assistant fournit une valeur par défaut pour chaque groupe et les moyens de paiement (6 ms)
+    ✓ tant que l'installation n'est pas faite, aucun compte ne peut se connecter au back-office (84 ms)
+    ✓ sauvegarde automatique du brouillon, SANS aucun secret (12 ms)
+    ✓ seuls le nom de la société et le compte administrateur sont obligatoires (10 ms)
+    ✓ validation de l'assistant : société personnalisée, clés de paiement chiffrées, administrateur créé (291 ms)
+    ✓ données de départ « exemple » : villes, itinéraires, véhicules et départs vendables (3 ms)
+    ✓ une fois terminé, l'assistant est fermé définitivement (12 ms)
+    ✓ tout reste modifiable ensuite dans Paramètres par un administrateur, et la modification est tracée (81 ms)
+    ✓ un secret peut être remplacé ou effacé, jamais relu ; le passage en production exige les clés (84 ms)
+    ✓ langue ajoutée et textes personnalisés servis au frontend (64 ms)
+    ✓ modèle d'e-mail personnalisable avec variables, HTML assaini (53 ms)
+  Assistant protégé par un code d'installation (variable SETUP_TOKEN)
+    ✓ sans le code : refus ; avec le code : accepté (78 ms)
+
+PASS test/unit/domain.spec.ts
+  Marque blanche : aucune valeur de société en dur
+    ✓ le nom par défaut est neutre (4 ms)
+    ✓ chaque groupe de paramètres a des valeurs par défaut valides (l'assistant peut tout passer) (4 ms)
+    ✓ aucune occurrence de « soatrans » dans le code du backend ni dans les migrations (19 ms)
+    ✓ préfixe des références déduit du nom de la société (1 ms)
+    ✓ les modèles d'e-mails n'utilisent que des variables déclarées, dans les langues de base (32 ms)
+  Paramètres
+    ✓ refuse les champs inconnus (19 ms)
+    ✓ la langue par défaut doit être activée (3 ms)
+    ✓ refuse un fuseau horaire inconnu et une couleur invalide (1 ms)
+    ✓ borne les réglages de réservation (2 ms)
+  Plans de sièges
+    ✓ les trois plans d'origine ont la bonne capacité et des sièges uniques (5 ms)
+  Rôles et permissions
+    ✓ les 5 rôles intégrés existent, l'administrateur a tout (1 ms)
+    ✓ la vente au guichet n'est plus ouverte à tous : le chauffeur et le comptable ne l'ont pas (1 ms)
+    ✓ normalizePermissions ignore les clés inconnues et les valeurs non booléennes
+  Billet : QR code et montants
+    ✓ QR signé : accepté tel quel, rejeté si le numéro ou la signature sont modifiés (1 ms)
+    ✓ QR au format « référence » et saisie manuelle
+    ✓ formatMoney suit la devise configurée (1 ms)
+    ✓ la signature d'un callback dépend du paiement et du moyen de paiement (1 ms)
+  Validation des entrées
+    ✓ e-mail (1 ms)
+    ✓ téléphone (1 ms)
+    ✓ date et heure (1 ms)
+    ✓ montant : entier positif uniquement
+    ✓ siège (1 ms)
+    ✓ mot de passe fort exigé (1 ms)
+  Assainissement des modèles d'e-mail
+    ✓ retire scripts, gestionnaires d'événements et URL javascript: (1 ms)
+    ✓ conserve la mise en forme légitime (1 ms)
+
+PASS test/unit/crypto.spec.ts
+  Chiffrement des secrets (AES-256-GCM)
+    ✓ chiffre puis déchiffre (2 ms)
+    ✓ deux chiffrements du même texte diffèrent (IV aléatoire) (1 ms)
+    ✓ un texte chiffré altéré est rejeté (authentification GCM) (12 ms)
+    ✓ une autre clé maîtresse ne déchiffre pas (1 ms)
+  Double authentification TOTP (RFC 6238)
+    ✓ vecteur RFC à t=59 s → 287082
+    ✓ vecteur RFC à t=1111111109 s → 081804
+    ✓ vecteur RFC à t=1111111111 s → 050471 (1 ms)
+    ✓ vecteur RFC à t=1234567890 s → 005924
+    ✓ vecteur RFC à t=2000000000 s → 279037 (1 ms)
+    ✓ accepte le code courant et celui de la fenêtre voisine (dérive d'horloge de 30 s) (1 ms)
+    ✓ refuse un code mal formé (1 ms)
+    ✓ base32 aller-retour
+    ✓ URI otpauth lisible par les applications d'authentification (1 ms)
+  Utilitaires
+    ✓ safeEqual compare sans fuite de longueur
+    ✓ sha256, jetons et codes aléatoires (1 ms)
+
+PASS test/unit/time.spec.ts
+  Dates, fuseaux horaires et récurrence
+    ✓ convertit une heure locale de Madagascar (UTC+3) en instant UTC (5 ms)
+    ✓ un départ juste après minuit local tombe la veille en UTC
+    ✓ voyage de nuit : départ 21:00, arrivée 05:30 le lendemain (date de service = date de départ) (3 ms)
+    ✓ changement d'heure : la durée réelle reste exacte quand on recule d'une heure (Paris, 25/10/2026) (2 ms)
+    ✓ changement d'heure : une heure locale inexistante est décalée, jamais refusée (Paris, 29/03/2026 02:30) (1 ms)
+    ✓ refuse une date impossible (11 ms)
+    ✓ todayIn dépend du fuseau : 22:00 UTC est déjà le lendemain à Antananarivo
+    ✓ addDays et dow passent les fins de mois et d'année (3 ms)
+    ✓ fmtDuration
+    ✓ récurrence quotidienne, bornée par les dates de début et de fin
+    ✓ jours ouvrés et week-end (1 ms)
+    ✓ hebdomadaire et personnalisé : seulement les jours choisis (1 ms)
+    ✓ ponctuel : uniquement à la date précise, même avant la date de début
+    ✓ récurrence inconnue : jamais (1 ms)
+
+Test Suites: 10 passed, 10 total
+Tests:       252 passed, 252 total
+Snapshots:   0 total
+Time:        46.353 s, estimated 51 s
+Ran all test suites.

@@ -14,12 +14,13 @@
     </div>
   </div>
 
-  <!-- Search Form -->
+  <!-- Formulaire -->
   <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
     <h3 class="text-lg font-semibold text-slate-900 mb-5">{{ i18n.t().search.formTitle }}</h3>
 
     <div class="grid md:grid-cols-2 gap-4 mb-4">
 
+      <!-- ── Départ ── -->
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1.5">
           <span class="flex items-center gap-1.5">
@@ -30,9 +31,65 @@
             {{ i18n.t().search.labelFrom }}
           </span>
         </label>
-        <input type="text" [(ngModel)]="from" [placeholder]="i18n.t().search.placeholderFrom" class="input-field" required />
+        <div class="relative">
+          <!-- Input avec icône + bouton clear -->
+          <div class="relative flex items-center">
+            <input type="text" [(ngModel)]="from"
+                   [placeholder]="i18n.t().search.placeholderFrom"
+                   class="input-field pr-8"
+                   (ngModelChange)="showFromList.set(true)"
+                   (focus)="showFromList.set(true)"
+                   (blur)="showFromList.set(false)"
+                   autocomplete="off" />
+            @if (from) {
+              <button type="button" (mousedown)="clearFrom()"
+                      class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+            } @else {
+              <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none"
+                   xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <path d="m6 9 6 6 6-6"/>
+              </svg>
+            }
+          </div>
+
+          <!-- Dropdown liste des villes -->
+          @if (showFromList() && fromFiltered().length > 0) {
+            <div class="absolute z-40 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+
+              @if (!from) {
+                <div class="px-3 pt-2.5 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                  Toutes les villes
+                </div>
+              }
+
+              @for (city of fromFiltered(); track city) {
+                <button type="button" (mousedown)="pickFrom(city)"
+                        class="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 flex items-center justify-between transition-colors"
+                        [class.bg-blue-50]="from === city">
+                  <span class="flex items-center gap-2.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" class="text-blue-400 flex-shrink-0">
+                      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+                    </svg>
+                    <span [class.font-semibold]="from === city" class="text-slate-700">{{ city }}</span>
+                  </span>
+                  @if (activeCities().has(city)) {
+                    <span class="text-xs text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                      Direct
+                    </span>
+                  }
+                </button>
+              }
+            </div>
+          }
+        </div>
       </div>
 
+      <!-- ── Destination ── -->
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1.5">
           <span class="flex items-center gap-1.5">
@@ -44,17 +101,88 @@
           </span>
         </label>
         <div class="relative">
-          <input type="text" [(ngModel)]="to" [placeholder]="i18n.t().search.placeholderTo" class="input-field pr-12" required />
-          <button type="button" (click)="swapLocations()"
-                  class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-slate-200 transition-colors text-slate-500">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>
-            </svg>
-          </button>
+          <div class="relative flex items-center">
+            <input type="text" [(ngModel)]="to"
+                   [placeholder]="i18n.t().search.placeholderTo"
+                   class="input-field pr-16"
+                   (ngModelChange)="showToList.set(true)"
+                   (focus)="showToList.set(true)"
+                   (blur)="showToList.set(false)"
+                   autocomplete="off" />
+            <!-- Bouton clear ou swap -->
+            <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              @if (to) {
+                <button type="button" (mousedown)="clearTo()"
+                        class="text-slate-400 hover:text-slate-600 transition-colors p-0.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+              } @else {
+                <svg class="text-slate-300 pointer-events-none"
+                     xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2">
+                  <path d="m6 9 6 6 6-6"/>
+                </svg>
+              }
+              <button type="button" (click)="swapLocations()"
+                      class="p-1 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-700"
+                      title="Inverser départ / destination">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Avertissement départ = destination -->
+          @if (from && to && from === to) {
+            <div class="absolute z-30 top-full left-0 right-0 mt-1 px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600 font-medium flex items-center gap-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Le départ et la destination ne peuvent pas être identiques
+            </div>
+          }
+
+          <!-- Dropdown destination -->
+          @if (showToList() && toFiltered().length > 0) {
+            <div class="absolute z-40 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+
+              @if (!to) {
+                <div class="px-3 pt-2.5 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                  @if (from) {
+                    Destinations depuis {{ from }}
+                  } @else {
+                    Toutes les villes
+                  }
+                </div>
+              }
+
+              @for (city of toFiltered(); track city) {
+                <button type="button" (mousedown)="pickTo(city)"
+                        class="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 flex items-center justify-between transition-colors"
+                        [class.bg-blue-50]="to === city">
+                  <span class="flex items-center gap-2.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" class="text-blue-400 flex-shrink-0">
+                      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>
+                    </svg>
+                    <span [class.font-semibold]="to === city" class="text-slate-700">{{ city }}</span>
+                  </span>
+                  @if (activeCities().has(city)) {
+                    <span class="text-xs text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                      Direct
+                    </span>
+                  }
+                </button>
+              }
+            </div>
+          }
         </div>
       </div>
 
+      <!-- ── Date ── -->
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1.5">
           <span class="flex items-center gap-1.5">
@@ -67,9 +195,10 @@
             {{ i18n.t().search.labelDate }}
           </span>
         </label>
-        <input type="date" [(ngModel)]="date" [min]="today" class="input-field" required />
+        <input type="date" [(ngModel)]="date" [min]="today" [max]="maxDate()" class="input-field" aria-label="{{ i18n.t().search.labelDate }}" />
       </div>
 
+      <!-- ── Passagers ── -->
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1.5">
           <span class="flex items-center gap-1.5">
@@ -82,48 +211,89 @@
             {{ i18n.t().search.labelPassengers }}
           </span>
         </label>
-        <input type="number" [(ngModel)]="passengers" min="1" max="9" class="input-field" required />
+        <select [(ngModel)]="passengers" class="input-field" aria-label="{{ i18n.t().search.labelPassengers }}">
+          @for (n of passengerChoices(); track n) { <option [ngValue]="n">{{ n }}</option> }
+        </select>
       </div>
-
     </div>
 
-    <button (click)="handleSearch()" [disabled]="!isFormValid()"
-            class="w-full h-12 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed
-                   text-white font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2">
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-      </svg>
+    <!-- ── Bannière disponibilité (prévisualisation) ── -->
+    @if (previewAvail(); as av) {
+      @if (av.status === 'suspended') {
+        <div class="mb-4 flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+          <span class="text-2xl flex-shrink-0 mt-0.5">⚠️</span>
+          <div>
+            <p class="font-semibold text-amber-900 text-sm">{{ i18n.t().x.suspended }}</p>
+            @if (av.reason) { <p class="text-amber-700 text-xs mt-0.5">{{ av.reason }}</p> }
+            @if (av.until) {
+              <p class="text-amber-600 text-xs mt-0.5 font-medium">{{ i18n.t().x.resumeOn }} {{ av.until | appDate }}</p>
+            }
+          </div>
+        </div>
+      }
+      @if (av.status === 'not_found') {
+        <div class="mb-4 flex items-start gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+          <span class="text-2xl flex-shrink-0 mt-0.5">🔍</span>
+          <div>
+            <p class="font-semibold text-slate-700 text-sm">{{ i18n.t().x.notFound }}</p>
+          </div>
+        </div>
+      }
+      @if (av.status === 'no_vehicles') {
+        <div class="mb-4 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
+          <span class="text-2xl flex-shrink-0 mt-0.5">🚫</span>
+          <div>
+            <p class="font-semibold text-red-800 text-sm">{{ noVehiclesMessage(av) }}</p>
+          </div>
+        </div>
+      }
+      @if (av.status === 'error') {
+        <div class="mb-4 flex items-start gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl" role="alert">
+          <span class="text-2xl flex-shrink-0 mt-0.5">📡</span>
+          <p class="text-slate-700 text-sm">{{ i18n.t().x.searchError }}</p>
+        </div>
+      }
+      @if (av.status === 'available') {
+        <div class="mb-4 flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+          <span class="text-xl flex-shrink-0">✅</span>
+          <p class="text-emerald-700 text-sm">
+            <strong>{{ av.slots.length }}</strong> {{ i18n.t().x.slotsFrom }}
+            <strong>{{ av.slots[0].price | money }}</strong>
+          </p>
+        </div>
+      }
+    }
+
+    <!-- Bouton rechercher -->
+    <button (click)="handleSearch()" [disabled]="!canSearch()"
+            class="w-full py-3.5 px-6 rounded-xl font-semibold text-base transition-all
+                   bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-sm
+                   disabled:opacity-40 disabled:cursor-not-allowed">
       {{ i18n.t().search.btnSearch }}
     </button>
   </div>
 
-  <!-- Trajets populaires -->
-  <div>
-    <h3 class="text-lg font-semibold text-slate-900 mb-4">{{ i18n.t().search.popularRoutes }}</h3>
-    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      @for (route of popularRoutes; track route.from) {
-        <button (click)="selectRoute(route)"
-                class="bg-white rounded-xl border border-slate-200 p-4 text-left hover:border-blue-300 hover:shadow-md transition-all duration-200">
-          <div class="flex items-start justify-between mb-2">
-            <div>
-              <p class="font-semibold text-slate-900 text-sm">{{ route.from }}</p>
-              <p class="text-slate-500 text-xs flex items-center gap-1 mt-0.5">
-                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="5" x2="19" y1="12" y2="12"/><polyline points="12 5 19 12 12 19"/>
-                </svg>
-                {{ route.to }}
-              </p>
+  <!-- ── Routes populaires ── -->
+  @if (popularRoutes().length > 0) {
+    <div>
+      <h3 class="text-base font-semibold text-slate-900 mb-3">{{ i18n.t().search.popularRoutes }}</h3>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        @for (route of popularRoutes(); track route.from + route.to) {
+          <button (click)="pickRoute(route)"
+                  class="p-4 bg-white rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-sm transition-all text-left">
+            <div class="flex items-center gap-1.5 text-xs font-medium text-blue-600 mb-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>{{ route.from }}
             </div>
-            <div class="text-right">
-              <p class="text-xs text-slate-400">{{ i18n.t().search.from }}</p>
-              <p class="font-bold text-blue-600 text-sm">{{ route.price | number }} Ar</p>
+            <div class="flex items-center gap-1 text-slate-400 text-xs mb-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              <span class="text-xs font-medium text-slate-700">{{ route.to }}</span>
             </div>
-          </div>
-        </button>
-      }
+            <div class="text-xs font-semibold text-emerald-600">Dès {{ route.price | money }}</div>
+          </button>
+        }
+      </div>
     </div>
-  </div>
+  }
 
 </div>

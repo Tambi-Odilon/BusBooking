@@ -1,0 +1,87 @@
+<div class="a-fade">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+    <div>
+      <div style="font-size:18px;font-weight:700;color:var(--a-tx1);letter-spacing:-.4px">Chiffre d'affaires</div>
+      <div class="a-mono" style="font-size:11px;color:var(--a-tx3);margin-top:3px">Analyse financière détaillée</div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      @for (p of [7, 14, 30, 60, 90]; track p) {
+        <button [class]="'a-btn sm ' + (period() === p ? 'primary' : 'ghost')" (click)="setPeriod(p)">{{ p }}j</button>
+      }
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:18px">
+    <adm-stat [label]="'Revenu (' + period() + ' jours)'" [value]="(total()/1000000).toFixed(2) + 'M Ar'"
+              [sub]="totalBk() + ' réservations'" color="a-green" />
+    <adm-stat label="Revenu moyen/jour" [value]="(avgDay()/1000).toFixed(0) + 'k Ar'"
+              sub="Sur la période sélectionnée" color="a-cyan" />
+    <adm-stat label="Meilleur jour" [value]="best() ? (best().date | adminDate) : '—'"
+              [sub]="best() ? (best().amount | ariary) : ''" color="a-amber" />
+    <adm-stat label="Ticket moyen" [value]="ticketAvg() | ariary" sub="Par réservation" color="a-blue" />
+  </div>
+
+  <!-- Chart -->
+  <div class="a-card" style="margin-bottom:14px">
+    <div class="a-card-title">Évolution du revenu ({{ period() }} derniers jours)</div>
+    <adm-bar-chart [data]="chart()" color="var(--a-green)" />
+  </div>
+
+  <!-- Split par paiement + top routes -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+    <div class="a-card">
+      <div class="a-card-title">Répartition par méthode de paiement</div>
+      @for (pm of pmMap(); track pm.key) {
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+            <span style="font-size:12px;color:var(--a-tx1)">{{ pm.label }}</span>
+            <div style="text-align:right">
+              <span class="a-mono" style="font-size:11px;font-weight:700" [style.color]="pmColor(pm.key)">{{ pm.pct }}%</span>
+              <span style="font-size:10px;color:var(--a-tx3);margin-left:6px">{{ pm.amount | ariary }}</span>
+            </div>
+          </div>
+          <adm-progress [value]="pm.pct" [color]="pmColor(pm.key)" />
+        </div>
+      }
+    </div>
+    <div class="a-card">
+      <div class="a-card-title">Top routes — Revenu total</div>
+      <div class="a-table-wrap">
+        <table class="a-table">
+          <thead><tr><th>Route</th><th>Rés.</th><th>Revenu</th></tr></thead>
+          <tbody>
+            @for (r of topRoutes(); track r.from + r.to) {
+              <tr>
+                <td style="font-size:11px;color:var(--a-tx1)">{{ r.from }} → {{ r.to }}</td>
+                <td class="a-mono" style="font-size:11px">{{ r.bookings }}</td>
+                <td class="a-mono" style="font-weight:700;color:var(--a-green);font-size:12px">{{ r.revenue | ariary }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily table -->
+  <div class="a-card" style="padding:0;overflow:hidden">
+    <div style="padding:16px 20px 10px"><div class="a-card-title" style="margin:0">Détail journalier</div></div>
+    <div class="a-table-wrap">
+      <table class="a-table">
+        <thead><tr><th>Date</th><th>Réservations</th><th>Revenu</th><th>Moy./réservation</th></tr></thead>
+        <tbody>
+          @for (r of tableRows(); track r.date) {
+            <tr>
+              <td class="a-mono" style="font-size:11px">{{ r.date | adminDate }}</td>
+              <td class="a-mono">{{ r.bookings }}</td>
+              <td class="a-mono" style="font-weight:700;color:var(--a-green);font-size:12px">{{ r.amount | ariary }}</td>
+              <td class="a-mono" style="font-size:11px;color:var(--a-tx2)">
+                {{ r.bookings ? (r.amount / r.bookings | number:'1.0-0') + ' Ar' : '—' }}
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

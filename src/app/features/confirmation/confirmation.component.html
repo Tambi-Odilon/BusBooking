@@ -1,5 +1,6 @@
 <div class="max-w-3xl mx-auto space-y-6">
 
+  <!-- ── Hero succès ── -->
   <div class="bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 rounded-2xl p-8 text-center">
     <div class="flex justify-center mb-4">
       <div class="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-200">
@@ -17,100 +18,150 @@
     </div>
   </div>
 
+  <!-- ── Ticket principal avec QR code ── -->
   <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-    <div class="bg-slate-50 border-b border-slate-200 px-6 py-4">
-      <h3 class="font-bold text-slate-900">{{ i18n.t().confirmation.ticketTitle }}</h3>
+
+    <!-- Header ticket -->
+    <div class="bg-gradient-to-r from-slate-800 to-blue-900 px-6 py-4 flex items-center justify-between">
+      <div>
+        <div class="text-white font-bold text-lg tracking-tight flex items-center gap-2">
+          @if (cfg.identity().logoDarkUrl || cfg.identity().logoUrl) { <img [src]="cfg.identity().logoDarkUrl || cfg.identity().logoUrl" alt="" class="h-7 w-auto max-w-[120px] object-contain" /> }
+          <span>{{ cfg.name() }}</span>
+        </div>
+        <div class="text-slate-400 text-xs uppercase tracking-wider mt-0.5">Ticket de voyage</div>
+      </div>
+      <div class="text-right">
+        <div class="text-slate-400 text-xs uppercase tracking-wider">Référence</div>
+        <div class="font-mono font-bold text-blue-400 text-lg tracking-widest">{{ bookingReference() }}</div>
+      </div>
     </div>
-    <div class="p-6 space-y-6">
 
-      <div class="grid sm:grid-cols-2 gap-6">
-        <div class="space-y-4">
-          <div class="flex items-start gap-3">
-            <span class="text-blue-600 mt-0.5">📍</span>
-            <div>
-              <p class="text-xs text-slate-500">{{ i18n.t().confirmation.departure }}</p>
-              <p class="font-bold text-slate-900">{{ searchParams()?.from }}</p>
-            </div>
-          </div>
-          <div class="flex items-start gap-3">
-            <span class="text-blue-600 mt-0.5">📍</span>
-            <div>
-              <p class="text-xs text-slate-500">{{ i18n.t().confirmation.destination }}</p>
-              <p class="font-bold text-slate-900">{{ searchParams()?.to }}</p>
-            </div>
-          </div>
-        </div>
-        <div class="space-y-4">
-          <div class="flex items-start gap-3">
-            <span class="text-blue-600 mt-0.5">📅</span>
-            <div>
-              <p class="text-xs text-slate-500">{{ i18n.t().confirmation.travelDate }}</p>
-              <p class="font-bold text-slate-900">{{ searchParams()?.date }}</p>
-            </div>
-          </div>
-          <div class="flex items-start gap-3">
-            <span class="text-blue-600 mt-0.5">⏰</span>
-            <div>
-              <p class="text-xs text-slate-500">{{ i18n.t().confirmation.departureTime }}</p>
-              <p class="font-bold text-slate-900">{{ selectedBus()?.departure }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+    <!-- Bande verte confirmée -->
+    <div class="bg-emerald-500 text-white text-center text-xs font-semibold py-2 tracking-wider">
+      ✅ &nbsp;RÉSERVATION CONFIRMÉE — PAIEMENT VALIDÉ
+    </div>
 
-      <div class="border-t border-slate-100 pt-6">
-        <h4 class="font-bold text-slate-900 mb-3">{{ i18n.t().confirmation.busInfo }}</h4>
-        <div class="grid sm:grid-cols-2 gap-4 text-sm">
-          <div>
-            <p class="text-slate-500 text-xs">{{ i18n.t().confirmation.busName }}</p>
-            <p class="font-medium">{{ selectedBus()?.name }}</p>
+    <div class="p-4 sm:p-6 space-y-6">
+
+      <!-- ── Route card ── -->
+      <div class="bg-gradient-to-r from-blue-50 to-emerald-50 border border-blue-200 rounded-xl p-4">
+        <div class="flex items-center gap-2">
+          <!-- Ville départ -->
+          <div class="flex-1 min-w-0">
+            <p class="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Départ</p>
+            <p class="font-bold text-slate-900 text-base sm:text-xl break-words">{{ searchParams()?.from }}</p>
+            <p class="text-blue-700 font-bold text-lg tabular-nums">{{ selectedBus()?.departure }}</p>
           </div>
-          <div>
-            <p class="text-slate-500 text-xs">{{ i18n.t().confirmation.busType }}</p>
-            <p class="font-medium">{{ selectedBus()?.type }}</p>
+          <!-- Flèche durée -->
+          <div class="flex flex-col items-center gap-1 px-1 sm:px-3 flex-shrink-0">
+            <div class="text-xs text-slate-400">{{ selectedBus()?.duration }}</div>
+            <div class="flex items-center gap-1">
+              <div class="h-0.5 w-5 sm:w-12 bg-gradient-to-r from-blue-400 to-emerald-400"></div>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.5" class="text-emerald-500">
+                <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+              </svg>
+            </div>
+            <div class="text-xs text-slate-400">{{ selectedBus()?.type }}</div>
           </div>
-          <div>
-            <p class="text-slate-500 text-xs">{{ i18n.t().confirmation.busDuration }}</p>
-            <p class="font-medium">{{ selectedBus()?.duration }}</p>
-          </div>
-          <div>
-            <p class="text-slate-500 text-xs">{{ i18n.t().confirmation.busArrival }}</p>
-            <p class="font-medium">{{ selectedBus()?.arrival }}</p>
+          <!-- Ville arrivée -->
+          <div class="flex-1 min-w-0 text-right">
+            <p class="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Arrivée</p>
+            <p class="font-bold text-slate-900 text-base sm:text-xl break-words">{{ searchParams()?.to }}</p>
+            <p class="text-emerald-700 font-bold text-lg tabular-nums">{{ selectedBus()?.arrival }}</p>
           </div>
         </div>
       </div>
 
-      <div class="border-t border-slate-100 pt-6">
-        <h4 class="font-bold text-slate-900 mb-3">{{ i18n.t().confirmation.passengersTitle }}</h4>
-        <div class="space-y-3">
+      <!-- ── Infos voyage + QR code ── -->
+      <div class="flex flex-col sm:flex-row gap-5 items-stretch sm:items-start">
+        <!-- Infos -->
+        <div class="flex-1 grid grid-cols-2 gap-3 min-w-0">
+          <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+            <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Date</p>
+            <p class="font-bold text-slate-900 text-sm">{{ searchParams()?.date | appDate }}</p>
+          </div>
+          <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+            <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Bus</p>
+            <p class="font-bold text-slate-900 text-sm">{{ selectedBus()?.name }}</p>
+          </div>
+          <div class="bg-blue-50 rounded-xl p-3 border border-blue-100 col-span-2">
+            <p class="text-xs text-blue-500 uppercase tracking-wide mb-1">Sièges réservés</p>
+            <div class="flex flex-wrap gap-1.5 mt-1">
+              @for (seat of selectedSeats(); track seat) {
+                <span class="px-2.5 py-1 bg-blue-600 text-white rounded-lg text-sm font-bold font-mono">{{ seat }}</span>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- QR code -->
+        <div class="flex flex-col items-center gap-2 flex-shrink-0 self-center sm:self-start">
+          <div class="p-2 bg-white border-2 border-slate-800 rounded-xl shadow-md">
+            @if (qrs().length) {
+              <img [src]="qrs()[qrIndex()].qrDataUrl" width="140" height="140" [alt]="'QR ' + qrs()[qrIndex()].ticketNumber" class="rounded block" />
+            } @else {
+              <div class="w-[140px] h-[140px] rounded bg-slate-100 animate-pulse" [attr.aria-label]="i18n.t().x.loading"></div>
+            }
+          </div>
+          @if (qrs().length) {
+            <p class="font-mono text-xs font-bold text-slate-600">{{ qrs()[qrIndex()].ticketNumber }}</p>
+            <p class="text-xs text-slate-500 text-center">{{ qrs()[qrIndex()].name }} · {{ qrs()[qrIndex()].seatNo }}</p>
+          }
+          @if (qrs().length > 1) {
+            <div class="flex gap-1.5" role="tablist">
+              @for (q of qrs(); track q.passengerId; let i = $index) {
+                <button type="button" role="tab" [attr.aria-selected]="qrIndex() === i" (click)="qrIndex.set(i)" [attr.aria-label]="q.name"
+                        [class]="'w-7 h-7 rounded-full text-xs font-bold ' + (qrIndex() === i ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600')">{{ i + 1 }}</button>
+              }
+            </div>
+          }
+          <p class="text-xs text-slate-400 text-center max-w-[160px]">{{ i18n.t().x.showQr }}</p>
+        </div>
+      </div>
+
+      <!-- Séparateur pointillés style ticket -->
+      <div class="relative flex items-center">
+        <div class="flex-1 border-t-2 border-dashed border-slate-200"></div>
+        <div class="mx-3 text-slate-300">✂</div>
+        <div class="flex-1 border-t-2 border-dashed border-slate-200"></div>
+      </div>
+
+      <!-- ── Passagers ── -->
+      <div>
+        <h4 class="font-bold text-slate-900 mb-3 flex items-center gap-2">
+          <span class="text-blue-600">👥</span>{{ i18n.t().confirmation.passengersTitle }}
+        </h4>
+        <div class="space-y-2">
           @for (passenger of passengers(); track passenger.seatNumber) {
-            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
               <div>
                 <p class="font-semibold text-slate-900">{{ passenger.firstName }} {{ passenger.lastName }}</p>
-                <p class="text-sm text-slate-500">{{ passenger.phone }} · {{ passenger.gender }}</p>
+                <p class="text-sm text-slate-500">{{ passenger.phone }}</p>
               </div>
-              <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium">
-                {{ i18n.t().passengers.seat }} {{ passenger.seatNumber }}
+              <span class="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm font-bold font-mono">
+                {{ passenger.seatNumber }}
               </span>
             </div>
           }
         </div>
       </div>
 
-      <div class="border-t border-slate-100 pt-6">
+      <!-- ── Récapitulatif paiement ── -->
+      <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
         <h4 class="font-bold text-slate-900 mb-3">{{ i18n.t().confirmation.paymentTitle }}</h4>
         <div class="space-y-2 text-sm">
-          <div class="flex justify-between">
-            <span class="text-slate-600">{{ i18n.t().confirmation.tickets(selectedSeats().length) }} × {{ selectedBus()?.price | number }} Ar</span>
-            <span class="font-medium">{{ ticketTotal() | number }} Ar</span>
+          <div class="flex justify-between text-slate-600">
+            <span>{{ selectedSeats().length }} billet(s) × {{ selectedBus()?.price | money }}</span>
+            <span>{{ ticketTotal() | money }}</span>
           </div>
-          <div class="flex justify-between">
-            <span class="text-slate-600">{{ i18n.t().confirmation.serviceFee }}</span>
-            <span class="font-medium">2 000 Ar</span>
+          <div class="flex justify-between text-slate-600">
+            <span>{{ i18n.t().confirmation.serviceFee }}</span>
+            <span>{{ fee() | money }}</span>
           </div>
-          <div class="border-t border-slate-100 pt-2 flex justify-between">
+          <div class="pt-2 border-t border-slate-200 flex justify-between">
             <span class="font-bold">{{ i18n.t().confirmation.totalPaid }}</span>
-            <span class="font-bold text-xl text-emerald-600">{{ total() | number }} Ar</span>
+            <span class="font-bold text-xl text-emerald-600">{{ total() | money }}</span>
           </div>
         </div>
       </div>
@@ -118,31 +169,70 @@
     </div>
   </div>
 
-  <div class="flex flex-col sm:flex-row gap-3">
-    <button (click)="downloadTicket()"
-            class="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 text-slate-700
-                   hover:border-blue-300 hover:text-blue-700 rounded-xl text-sm font-medium transition-colors">
-      {{ i18n.t().confirmation.downloadBtn }}
+  <!-- ── Actions ── -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+    <!-- Télécharger PDF -->
+    @if (actionError()) { <p class="col-span-full text-center text-sm text-red-600 font-medium" role="alert">{{ actionError() }}</p> }
+    <button (click)="downloadTicket()" [disabled]="isDownloading()"
+            class="flex flex-col items-center gap-2 p-4 bg-white border border-slate-200 rounded-xl
+                   hover:border-blue-300 hover:bg-blue-50 transition-all text-sm font-medium text-slate-700 hover:text-blue-700
+                   disabled:opacity-50 disabled:cursor-wait">
+      @if (isDownloading()) {
+        <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        <span>Génération…</span>
+      } @else {
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span>Télécharger PDF</span>
+      }
     </button>
-    <button (click)="emailTicket()"
-            class="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 text-slate-700
-                   hover:border-blue-300 hover:text-blue-700 rounded-xl text-sm font-medium transition-colors">
-      {{ i18n.t().confirmation.emailBtn }}
+
+    <!-- Envoyer par email -->
+    <button (click)="openEmailModal()"
+            class="flex flex-col items-center gap-2 p-4 bg-white border border-slate-200 rounded-xl
+                   hover:border-emerald-300 hover:bg-emerald-50 transition-all text-sm font-medium text-slate-700 hover:text-emerald-700">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600">
+        <rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+      </svg>
+      <span>Envoyer par email</span>
     </button>
+
+    <!-- Mes réservations -->
     @if (isLoggedIn()) {
       <button (click)="viewMyBookings()"
-              class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
-        🎫 Mes réservations
+              class="flex flex-col items-center gap-2 p-4 bg-indigo-600 hover:bg-indigo-700 rounded-xl
+                     transition-colors text-sm font-semibold text-white">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+          <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/>
+        </svg>
+        <span>Mes réservations</span>
       </button>
     }
+
+    <!-- Nouvelle recherche -->
     <button (click)="newBooking()"
-            class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors text-sm">
-      {{ i18n.t().confirmation.newBookingBtn }}
+            class="flex flex-col items-center gap-2 p-4 bg-blue-600 hover:bg-blue-700 rounded-xl
+                   transition-colors text-sm font-semibold text-white">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+      </svg>
+      <span>{{ i18n.t().confirmation.newBookingBtn }}</span>
     </button>
   </div>
 
+  <!-- ── Avertissements ── -->
   <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
-    <h4 class="font-bold text-amber-900 mb-2">{{ i18n.t().confirmation.warningTitle }}</h4>
+    <h4 class="font-bold text-amber-900 mb-2 flex items-center gap-2">
+      {{ i18n.t().confirmation.warningTitle }}
+    </h4>
     <ul class="text-sm text-amber-800 space-y-1 list-disc list-inside">
       <li>{{ i18n.t().confirmation.warning1 }}</li>
       <li>{{ i18n.t().confirmation.warning2 }}</li>
@@ -152,3 +242,88 @@
   </div>
 
 </div>
+
+<!-- ══════════════════════════════════════════════════════════
+     Modal envoi email
+════════════════════════════════════════════════════════════ -->
+@if (showEmailModal()) {
+  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+       (click)="closeEmailModal()">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
+         (click)="$event.stopPropagation()">
+
+      <!-- Header modal -->
+      <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" class="text-emerald-600">
+              <rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+            </svg>
+          </div>
+          <h3 class="font-bold text-slate-900">Envoyer le ticket par email</h3>
+        </div>
+        <button (click)="closeEmailModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+
+      @if (!emailSent()) {
+        <!-- Formulaire email -->
+        <div class="space-y-4">
+          <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
+            <p class="text-xs text-slate-500 mb-1">Ticket pour</p>
+            <p class="font-semibold text-slate-900">{{ searchParams()?.from }} → {{ searchParams()?.to }}</p>
+            <p class="text-sm text-slate-600 font-mono">{{ bookingReference() }}</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Adresse email</label>
+            <input type="email" [(ngModel)]="emailAddress"
+                   placeholder="exemple@email.com"
+                   class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition-all" />
+          </div>
+
+          <p class="text-xs text-slate-400">
+            Le ticket complet avec QR code sera envoyé à cette adresse.
+          </p>
+
+          <div class="flex gap-3">
+            <button (click)="closeEmailModal()"
+                    class="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+              Annuler
+            </button>
+            <button (click)="sendEmail()" [disabled]="!emailAddress.trim() || emailSending()"
+                    class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+              @if (emailSending()) {
+                <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                Envoi…
+              } @else {
+                ✉️ Envoyer le ticket
+              }
+            </button>
+          </div>
+        </div>
+
+      } @else {
+        <!-- Succès envoi -->
+        <div class="text-center py-4">
+          <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5" class="text-emerald-600">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>
+            </svg>
+          </div>
+          <h4 class="font-bold text-slate-900 mb-1">Email envoyé !</h4>
+          <p class="text-sm text-slate-600 mb-5">Ticket envoyé à <strong>{{ emailAddress }}</strong></p>
+          <button (click)="closeEmailModal()"
+                  class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-colors">
+            Fermer
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+}

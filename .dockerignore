@@ -1,0 +1,11 @@
+node_modules
+dist
+.angular
+.git
+backend
+docs
+_to_delete
+.transfert
+deploy/backups
+deploy/.env
+*.log

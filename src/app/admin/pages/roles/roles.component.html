@@ -1,0 +1,471 @@
+<div class="a-fade">
+
+  <!-- ── En-tête ──────────────────────────────────────────────────────────── -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+    <div>
+      <div style="font-size:18px;font-weight:700;color:var(--a-tx1);letter-spacing:-.4px">Gestion des rôles</div>
+      <div class="a-mono" style="font-size:11px;color:var(--a-tx3);margin-top:3px">
+        {{ rolesService.roles().length }} rôles · {{ builtinCount() }} intégrés · {{ customCount() }} personnalisés
+      </div>
+    </div>
+    @if (auth.can('canManageSettings')) {
+      <button class="a-btn primary sm" (click)="openCreate()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nouveau rôle
+      </button>
+    }
+  </div>
+
+  <!-- ── Layout : liste gauche + éditeur droite ───────────────────────────── -->
+  <div style="display:grid;gap:16px" [style.grid-template-columns]="selectedRoleId() ? '340px 1fr' : '1fr'">
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- LISTE DES RÔLES                                                     -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div style="display:flex;flex-direction:column;gap:8px">
+
+      <!-- Rôles intégrés -->
+      <div class="a-mono" style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--a-tx3);padding:0 2px;margin-bottom:2px">Rôles intégrés</div>
+      @for (role of rolesService.roles(); track role.id) {
+        @if (role.isBuiltin) {
+          <div class="adm-role-item" style="border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .15s;border:2px solid;position:relative"
+               [style.border-color]="selectedRoleId()===role.id ? role.color : 'var(--a-border)'"
+               [style.background]="selectedRoleId()===role.id ? role.color+'12' : 'var(--a-bg2)'"
+               (click)="selectRole(role.id)">
+
+            <div style="display:flex;align-items:center;gap:10px">
+              <!-- Dot couleur -->
+              <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0"
+                   [style.background]="role.color+'22'" [style.color]="role.color">
+                {{ role.name[0] }}
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ role.name }}</span>
+                  @if (rolesService.isModified(role.id)) {
+                    <span class="a-mono" style="font-size:8px;padding:1px 6px;border-radius:3px;background:rgba(245,158,11,.15);color:var(--a-amber)">modifié</span>
+                  }
+                  @if (role.id === 'admin') {
+                    <span class="a-mono" style="font-size:8px;padding:1px 6px;border-radius:3px;background:rgba(239,68,68,.12);color:var(--a-red)">protégé</span>
+                  }
+                </div>
+                <div style="font-size:10px;color:var(--a-tx3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ role.description }}</div>
+              </div>
+              <!-- Compteur perms + users -->
+              <div style="text-align:right;flex-shrink:0">
+                <div class="a-mono" style="font-size:11px;font-weight:700" [style.color]="role.color">{{ rolesService.countPerms(role.id) }}/{{ permKeys.length }}</div>
+                <div style="font-size:9px;color:var(--a-tx3)">{{ usersForRole(role.id) }} user(s)</div>
+              </div>
+            </div>
+
+            <!-- Barre progression -->
+            <div style="height:3px;background:var(--a-border);border-radius:2px;margin-top:10px">
+              <div style="height:3px;border-radius:2px;transition:width .3s"
+                   [style.background]="role.color"
+                   [style.width]="(rolesService.countPerms(role.id)/permKeys.length*100)+'%'"></div>
+            </div>
+
+            <!-- Actions -->
+            @if (auth.can('canManageSettings') && canEdit(role)) {
+              <div style="position:absolute;top:10px;right:10px;display:flex;gap:3px" (click)="$event.stopPropagation()">
+                <button class="a-btn ghost sm" style="padding:3px 6px;font-size:10px" (click)="openEdit(role, $event)" title="Renommer">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                @if (rolesService.isModified(role.id)) {
+                  <button class="a-btn ghost sm" style="padding:3px 6px;font-size:10px;color:var(--a-tx3)" (click)="resetBuiltin(role.id);$event.stopPropagation()" title="Remettre par défaut">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+      }
+
+      <!-- Rôles personnalisés -->
+      @if (hasCustomRoles()) {
+        <div class="a-mono" style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--a-tx3);padding:0 2px;margin:10px 0 2px">Rôles personnalisés</div>
+        @for (role of rolesService.roles(); track role.id) {
+          @if (!role.isBuiltin) {
+            <div class="adm-role-item" style="border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .15s;border:2px solid;position:relative"
+                 [style.border-color]="selectedRoleId()===role.id ? role.color : 'var(--a-border)'"
+                 [style.background]="selectedRoleId()===role.id ? role.color+'12' : 'var(--a-bg2)'"
+                 (click)="selectRole(role.id)">
+
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0"
+                     [style.background]="role.color+'22'" [style.color]="role.color">
+                  {{ role.name[0] }}
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ role.name }}</div>
+                  <div style="font-size:10px;color:var(--a-tx3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ role.description || 'Aucune description' }}</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0">
+                  <div class="a-mono" style="font-size:11px;font-weight:700" [style.color]="role.color">{{ rolesService.countPerms(role.id) }}/{{ permKeys.length }}</div>
+                  <div style="font-size:9px;color:var(--a-tx3)">{{ usersForRole(role.id) }} user(s)</div>
+                </div>
+              </div>
+
+              <div style="height:3px;background:var(--a-border);border-radius:2px;margin-top:10px">
+                <div style="height:3px;border-radius:2px;transition:width .3s"
+                     [style.background]="role.color"
+                     [style.width]="(rolesService.countPerms(role.id)/permKeys.length*100)+'%'"></div>
+              </div>
+
+              @if (auth.can('canManageSettings')) {
+                <div style="position:absolute;top:10px;right:10px;display:flex;gap:3px" (click)="$event.stopPropagation()">
+                  <button class="a-btn ghost sm" style="padding:3px 6px" (click)="openEdit(role,$event)" title="Modifier">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                  <button class="a-btn ghost sm" style="padding:3px 6px;color:var(--a-red)" (click)="openDelete(role,$event)" title="Supprimer">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/></svg>
+                  </button>
+                </div>
+              }
+            </div>
+          }
+        }
+      }
+
+      <!-- Créer nouveau -->
+      @if (auth.can('canManageSettings')) {
+        <button class="a-btn ghost sm" style="width:100%;justify-content:center;border:2px dashed var(--a-border);border-radius:10px;padding:12px;color:var(--a-tx3);transition:all .15s;margin-top:4px"
+                (click)="openCreate()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Créer un nouveau rôle
+        </button>
+      }
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- ÉDITEUR DE PERMISSIONS                                              -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    @if (selectedRole(); as role) {
+      <div class="a-card a-fade" style="padding:0;overflow:hidden;height:fit-content;position:sticky;top:16px">
+
+        <!-- Header -->
+        <div style="padding:16px 20px;border-bottom:1px solid var(--a-border);display:flex;align-items:center;justify-content:space-between;gap:12px"
+             [style.background]="role.color+'0f'">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800"
+                 [style.background]="role.color+'30'" [style.color]="role.color">{{ role.name[0] }}</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--a-tx1)">{{ role.name }}</div>
+              <div style="font-size:10px;color:var(--a-tx3)">{{ role.description }}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            @if (role.id === 'admin') {
+              <span style="font-size:10px;color:var(--a-tx3);font-style:italic">Permissions complètes (lecture seule)</span>
+            }
+            @if (hasUnsavedChanges()) {
+              <span class="a-mono" style="font-size:9px;color:var(--a-amber)">● Modifications non sauvegardées</span>
+            }
+            <button class="a-btn ghost sm" style="padding:4px 6px" (click)="selectedRoleId.set(null);editingPerms.set(null);hasUnsavedChanges.set(false)">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Résumé permissions actives -->
+        @if (editingPerms(); as perms) {
+          <div style="padding:12px 20px;border-bottom:1px solid var(--a-border);display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+            <div>
+              <span class="a-mono" style="font-size:20px;font-weight:800" [style.color]="role.color">{{ countEnabled(perms) }}</span>
+              <span style="font-size:10px;color:var(--a-tx3);margin-left:4px">/ {{ permKeys.length }} permissions actives</span>
+            </div>
+            <div style="flex:1;height:6px;background:var(--a-border);border-radius:3px;min-width:100px">
+              <div style="height:6px;border-radius:3px;transition:width .3s"
+                   [style.background]="role.color"
+                   [style.width]="(countEnabled(perms)/permKeys.length*100)+'%'"></div>
+            </div>
+            <!-- Modules actifs -->
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              @for (g of permGroups; track g) {
+                <span style="font-size:9px;padding:2px 7px;border-radius:4px;transition:all .15s" class="a-mono"
+                      [style.background]="groupEnabled(g, perms) ? role.color+'20' : 'var(--a-bg3)'"
+                      [style.color]="groupEnabled(g, perms) ? role.color : 'var(--a-tx3)'">{{ g }}</span>
+              }
+            </div>
+          </div>
+
+          <!-- Grille des permissions par module -->
+          <div style="padding:16px 20px;max-height:60vh;overflow-y:auto">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
+              @for (group of permGroups; track group) {
+                @let groupPerms = permsInGroup(group, perms);
+                <div style="border-radius:10px;overflow:hidden;border:1px solid var(--a-border)">
+
+                  <!-- Header groupe avec toggle global -->
+                  <div style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px"
+                       [style.background]="groupEnabled(group, perms) ? role.color+'0f' : 'var(--a-bg3)'">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <div style="width:8px;height:8px;border-radius:50%;transition:background .2s"
+                           [style.background]="groupEnabled(group, perms) ? role.color : 'var(--a-border2)'"></div>
+                      <span style="font-size:11px;font-weight:700;color:var(--a-tx1)">{{ group }}</span>
+                    </div>
+                    <span class="a-mono" style="font-size:9px;color:var(--a-tx3)">
+                      {{ countEnabledInGroup(group, perms) }}/{{ permsInGroup(group, perms).length }}
+                    </span>
+                  </div>
+
+                  <!-- Permissions du groupe -->
+                  <div style="padding:8px 0">
+                    @for (p of groupPerms; track p.key) {
+                      @let meta = permMeta[p.key];
+                      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 14px;gap:10px;transition:background .1s"
+                           [style.opacity]="role.id === 'admin' ? '0.7' : '1'">
+                        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+                          <!-- Icône Voir/Gérer -->
+                          @if (meta.viewKey) {
+                            <span title="Permission de gestion" style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(139,92,246,.12);color:#8b5cf6;flex-shrink:0" class="a-mono">GÉRER</span>
+                          } @else if (meta.manageKey) {
+                            <span title="Permission de lecture" style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(6,182,212,.1);color:var(--a-cyan);flex-shrink:0" class="a-mono">VOIR</span>
+                          } @else {
+                            <span style="font-size:9px;padding:1px 5px;border-radius:3px;background:var(--a-bg3);color:var(--a-tx3);flex-shrink:0" class="a-mono">ACC.</span>
+                          }
+                          <span style="font-size:11px" [style.color]="p.value ? 'var(--a-tx1)' : 'var(--a-tx3)'">{{ meta.label }}</span>
+                        </div>
+                        <!-- Toggle switch -->
+                        <button
+                          style="width:38px;height:20px;border-radius:10px;border:none;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;outline:none"
+                          [style.background]="p.value ? role.color : 'var(--a-border2)'"
+                          [disabled]="role.id === 'admin' || !auth.can('canManageSettings')"
+                          (click)="togglePerm(p.key)">
+                          <span style="position:absolute;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)"
+                                [style.left]="p.value ? '20px' : '2px'"></span>
+                        </button>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Footer actions -->
+          @if (auth.can('canManageSettings') && role.id !== 'admin') {
+            <div style="padding:12px 20px;border-top:1px solid var(--a-border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;background:var(--a-bg3)">
+              <div style="display:flex;gap:6px">
+                <!-- Tout activer / tout désactiver -->
+                <button class="a-btn ghost sm" style="font-size:10px"
+                        (click)="enableAll()">
+                  Tout activer
+                </button>
+                <button class="a-btn ghost sm" style="font-size:10px"
+                        (click)="disableAll()">
+                  Tout désactiver
+                </button>
+                @if (rolesService.isModified(role.id)) {
+                  <button class="a-btn ghost sm" style="font-size:10px;color:var(--a-tx3)" (click)="resetBuiltin(role.id)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    Remettre par défaut
+                  </button>
+                }
+              </div>
+              <div style="display:flex;gap:8px">
+                @if (hasUnsavedChanges()) {
+                  <button class="a-btn ghost sm" (click)="discardChanges()">Annuler</button>
+                }
+                <button class="a-btn primary sm"
+                        [style.opacity]="hasUnsavedChanges() ? '1' : '0.5'"
+                        (click)="savePermissions()">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  Enregistrer
+                </button>
+              </div>
+            </div>
+          }
+        }
+      </div>
+    }
+  </div>
+
+  <!-- ── Tableau comparatif (quand rien n'est sélectionné) ─────────────────── -->
+  @if (!selectedRoleId()) {
+    <div class="a-card" style="padding:0;overflow:hidden;margin-top:20px">
+      <div style="padding:14px 20px;border-bottom:1px solid var(--a-border);display:flex;align-items:center;gap:10px">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--a-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+        <span style="font-size:13px;font-weight:700;color:var(--a-tx1)">Comparaison des permissions</span>
+        <span style="font-size:10px;color:var(--a-tx3)">Cliquez sur un rôle pour le modifier</span>
+      </div>
+      <div class="a-table-wrap">
+        <table class="a-table" style="font-size:11px">
+          <thead>
+            <tr>
+              <th style="min-width:180px">Permission</th>
+              @for (role of rolesService.roles(); track role.id) {
+                <th style="text-align:center;min-width:110px">
+                  <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+                    <span [style.color]="role.color" style="font-weight:700">{{ role.name }}</span>
+                    <span class="a-mono" style="font-size:8px;color:var(--a-tx3)">{{ rolesService.countPerms(role.id) }}/{{ permKeys.length }}</span>
+                  </div>
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (group of permGroups; track group) {
+              <tr>
+                <td colspan="100" style="background:var(--a-bg3);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--a-tx3);padding:5px 14px" class="a-mono">{{ group }}</td>
+              </tr>
+              @for (key of permKeys; track key) {
+                @if (permMeta[key].group === group) {
+                  <tr>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:7px">
+                        @if (permMeta[key].viewKey) {
+                          <span style="font-size:8px;padding:1px 4px;border-radius:2px;background:rgba(139,92,246,.1);color:#8b5cf6" class="a-mono">GÉRER</span>
+                        } @else if (permMeta[key].manageKey) {
+                          <span style="font-size:8px;padding:1px 4px;border-radius:2px;background:rgba(6,182,212,.08);color:var(--a-cyan)" class="a-mono">VOIR</span>
+                        }
+                        <span style="color:var(--a-tx2)">{{ permMeta[key].label }}</span>
+                      </div>
+                    </td>
+                    @for (role of rolesService.roles(); track role.id) {
+                      <td style="text-align:center">
+                        @if (rolesService.getPermissions(role.id)[key]) {
+                          <div style="width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700"
+                               [style.background]="role.color+'22'" [style.color]="role.color">✓</div>
+                        } @else {
+                          <span style="color:var(--a-border2);font-size:14px">—</span>
+                        }
+                      </td>
+                    }
+                  </tr>
+                }
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODALES                                                                    -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+@if (modal() !== null) {
+  <div class="a-overlay" (click)="closeModal()">
+    <div class="a-modal a-fade" style="max-width:480px" (click)="$event.stopPropagation()">
+
+      <!-- Créer un rôle -->
+      @if (modal() === 'create') {
+        <div class="a-modal-header">
+          <div class="a-modal-title">Créer un nouveau rôle</div>
+          <button class="a-btn ghost sm" (click)="closeModal()" style="padding:4px 8px">✕</button>
+        </div>
+        <div class="a-modal-body">
+          <div style="margin-bottom:12px">
+            <label class="a-form-label">Nom du rôle *</label>
+            <input class="a-input" placeholder="Ex : Modérateur, Agent terrain…" [(ngModel)]="roleForm.name"/>
+          </div>
+          <div style="margin-bottom:14px">
+            <label class="a-form-label">Description</label>
+            <input class="a-input" placeholder="Brève description des responsabilités" [(ngModel)]="roleForm.description"/>
+          </div>
+          <div>
+            <label class="a-form-label">Couleur d'identification</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;align-items:center">
+              @for (c of presetColors; track c) {
+                <button style="width:28px;height:28px;border-radius:50%;border:3px solid;cursor:pointer;transition:transform .1s;flex-shrink:0"
+                        [style.background]="c"
+                        [style.border-color]="roleForm.color===c ? '#fff' : 'transparent'"
+                        [style.box-shadow]="roleForm.color===c ? '0 0 0 2px '+c : 'none'"
+                        [style.transform]="roleForm.color===c ? 'scale(1.15)' : 'scale(1)'"
+                        (click)="roleForm.color=c"></button>
+              }
+              <!-- Picker libre -->
+              <input type="color" [(ngModel)]="roleForm.color" style="width:28px;height:28px;border-radius:50%;border:none;cursor:pointer;padding:0;background:transparent"/>
+            </div>
+            <!-- Aperçu -->
+            <div style="margin-top:12px;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px"
+                 [style.background]="roleForm.color+'18'">
+              <div style="width:10px;height:10px;border-radius:50%" [style.background]="roleForm.color"></div>
+              <span style="font-size:12px;font-weight:700" [style.color]="roleForm.color">{{ roleForm.name || 'Aperçu du rôle' }}</span>
+            </div>
+          </div>
+          <div style="margin-top:14px;background:rgba(6,182,212,.07);border:1px solid rgba(6,182,212,.2);border-radius:8px;padding:10px 12px;font-size:10px;color:var(--a-cyan)">
+            💡 Le rôle sera créé sans aucune permission. Vous pourrez configurer les accès juste après la création.
+          </div>
+        </div>
+        <div class="a-modal-footer">
+          <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+          <button class="a-btn primary sm" (click)="submitCreate()">Créer et configurer</button>
+        </div>
+      }
+
+      <!-- Modifier les métadonnées d'un rôle -->
+      @if (modal() === 'edit' && modalRole(); as role) {
+        <div class="a-modal-header">
+          <div class="a-modal-title">Modifier — {{ role.name }}</div>
+          <button class="a-btn ghost sm" (click)="closeModal()" style="padding:4px 8px">✕</button>
+        </div>
+        <div class="a-modal-body">
+          <div style="margin-bottom:12px">
+            <label class="a-form-label">Nom du rôle *</label>
+            <input class="a-input" [(ngModel)]="roleForm.name"/>
+          </div>
+          <div style="margin-bottom:14px">
+            <label class="a-form-label">Description</label>
+            <input class="a-input" [(ngModel)]="roleForm.description"/>
+          </div>
+          <div>
+            <label class="a-form-label">Couleur</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;align-items:center">
+              @for (c of presetColors; track c) {
+                <button style="width:28px;height:28px;border-radius:50%;border:3px solid;cursor:pointer;transition:transform .1s;flex-shrink:0"
+                        [style.background]="c"
+                        [style.border-color]="roleForm.color===c ? '#fff' : 'transparent'"
+                        [style.box-shadow]="roleForm.color===c ? '0 0 0 2px '+c : 'none'"
+                        [style.transform]="roleForm.color===c ? 'scale(1.15)' : 'scale(1)'"
+                        (click)="roleForm.color=c"></button>
+              }
+              <input type="color" [(ngModel)]="roleForm.color" style="width:28px;height:28px;border-radius:50%;border:none;cursor:pointer;padding:0;background:transparent"/>
+            </div>
+          </div>
+        </div>
+        <div class="a-modal-footer">
+          <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+          <button class="a-btn primary sm" (click)="submitEdit()">Enregistrer</button>
+        </div>
+      }
+
+      <!-- Supprimer un rôle -->
+      @if (modal() === 'delete' && modalRole(); as role) {
+        <div class="a-modal-header">
+          <div class="a-modal-title" style="color:var(--a-red)">Supprimer le rôle</div>
+          <button class="a-btn ghost sm" (click)="closeModal()" style="padding:4px 8px">✕</button>
+        </div>
+        <div class="a-modal-body">
+          <div style="display:flex;align-items:center;gap:10px;background:var(--a-bg3);border-radius:8px;padding:12px;margin-bottom:12px">
+            <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px"
+                 [style.background]="role.color+'22'" [style.color]="role.color">{{ role.name[0] }}</div>
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ role.name }}</div>
+              <div style="font-size:10px;color:var(--a-tx3)">{{ usersForRole(role.id) }} compte(s) avec ce rôle</div>
+            </div>
+          </div>
+          @if (usersForRole(role.id) > 0) {
+            <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:12px;font-size:12px;color:var(--a-red)">
+              ⛔ Impossible de supprimer : {{ usersForRole(role.id) }} compte(s) utilise(nt) ce rôle. Réassignez-les d'abord.
+            </div>
+          } @else {
+            <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:12px;font-size:12px;color:var(--a-red)">
+              ⚠ Cette action est irréversible. Le rôle et sa configuration seront définitivement supprimés.
+            </div>
+          }
+        </div>
+        <div class="a-modal-footer">
+          <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+          @if (usersForRole(role.id) === 0) {
+            <button class="a-btn sm" style="background:rgba(239,68,68,.15);color:var(--a-red);border:1px solid rgba(239,68,68,.3)" (click)="confirmDelete()">Supprimer</button>
+          }
+        </div>
+      }
+
+    </div>
+  </div>
+}

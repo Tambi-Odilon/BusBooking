@@ -1,0 +1,533 @@
+<div class="a-fade" style="max-width:1100px;margin:0 auto">
+  @if (user(); as u) {
+
+    <!-- Breadcrumb -->
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--a-tx3)">
+        <a routerLink="/admin/users" [queryParams]="{tab:'admins'}" style="color:var(--a-cyan);text-decoration:none">Utilisateurs</a>
+        <span>/</span><span>Comptes admin</span><span>/</span>
+        <span style="color:var(--a-tx1);font-weight:600">{{ u.firstName }} {{ u.lastName }}</span>
+      </div>
+      @if (auth.can('canManageUsers')) {
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="a-btn ghost sm" style="color:var(--a-amber)" (click)="openResetPwd()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Réinitialiser MDP
+          </button>
+          <button class="a-btn ghost sm" [style.color]="roleColor(u.role)" (click)="openChangeRole()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Changer le rôle
+          </button>
+          <button class="a-btn primary sm" (click)="openEditInfo()">Modifier</button>
+        </div>
+      }
+    </div>
+
+    <!-- Header profil -->
+    <div class="a-card" style="padding:0;overflow:hidden;margin-bottom:16px">
+      <div style="height:5px" [style.background]="roleColor(u.role)"></div>
+      <div style="padding:20px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+        <div style="width:66px;height:66px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;flex-shrink:0"
+             [style.background]="roleBg(u.role)" [style.color]="roleColor(u.role)">{{ initials(u) }}</div>
+        <div style="flex:1;min-width:200px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <h1 style="font-size:20px;font-weight:800;color:var(--a-tx1);margin:0">{{ u.firstName }} {{ u.lastName }}</h1>
+            <span class="a-mono" style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px"
+                  [style.background]="roleBg(u.role)" [style.color]="roleColor(u.role)">{{ roleLabel(u.role) }}</span>
+
+          </div>
+          <div style="font-size:12px;color:var(--a-tx3);margin-top:4px">{{ u.email }}</div>
+          <div class="a-mono" style="font-size:10px;color:var(--a-tx3);margin-top:2px">
+            Créé le {{ u.createdAt | date:'dd/MM/yyyy' }} ·
+            @if (u.lastLogin) { Dernière connexion {{ u.lastLogin | date:'dd/MM/yyyy HH:mm' }} }
+            @else { Jamais connecté }
+          </div>
+        </div>
+        <!-- Perms résumé -->
+        <div style="text-align:center">
+          <div class="a-mono" style="font-size:28px;font-weight:800" [style.color]="roleColor(u.role)">{{ countPerms(u.role) }}</div>
+          <div style="font-size:10px;color:var(--a-tx3)">permissions sur {{ permKeys.length }}</div>
+          <div style="height:4px;background:var(--a-border);border-radius:2px;margin-top:6px;width:80px">
+            <div style="height:4px;border-radius:2px" [style.background]="roleColor(u.role)" [style.width]="(countPerms(u.role)/permKeys.length*100)+'%'"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Onglets -->
+    <div style="display:flex;gap:2px;background:var(--a-bg3);padding:4px;border-radius:10px;width:fit-content;margin-bottom:16px">
+      @for (t of [
+        {id:'info',        label:'📋 Informations'},
+        {id:'permissions', label:'🔑 Permissions'},
+        {id:'history',     label:'📜 Rôles (' + roleLog().length + ')'},
+        {id:'activity',    label:'⚡ Activité (' + auditLog().length + ')'},
+        {id:'emails',      label:'📧 Emails (' + userEmails().length + ')'}
+      ]; track t.id) {
+        @if (t.id !== 'activity' || auth.can('canManageUsers')) {
+          <button style="padding:6px 14px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s"
+                  [style.background]="activeTab()===t.id?'var(--a-bg2)':'transparent'"
+                  [style.color]="activeTab()===t.id?'var(--a-tx1)':'var(--a-tx3)'"
+                  [style.box-shadow]="activeTab()===t.id?'0 1px 4px rgba(0,0,0,.15)':'none'"
+                  (click)="activeTab.set($any(t.id))">{{ t.label }}</button>
+        }
+      }
+    </div>
+
+    <!-- TAB INFORMATIONS -->
+    @if (activeTab() === 'info') {
+      <div class="a-card" style="padding:22px">
+        <div class="a-card-title">Informations du compte</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          @for (f of [
+            ['Prénom',u.firstName],['Nom',u.lastName],['Email',u.email],
+            ['Rôle',roleLabel(u.role)],
+            ['Créé le',(u.createdAt|date:'dd/MM/yyyy')??'—'],
+            ['Dernière connexion',u.lastLogin?((u.lastLogin|date:'dd/MM/yyyy HH:mm')??'—'):'Jamais'],
+            ['Double authentification', u.totpEnabled ? 'Activée' : 'Non activée'],
+            ['Accès session',u.id===auth.currentAdmin()?.id?'Compte actif (vous)':'Autre compte'],
+            ['🔐 ID public (juridique)',u.publicId??'Non assigné']
+          ]; track f[0]) {
+            <div style="padding:10px 0;border-bottom:1px solid var(--a-border)">
+              <div style="font-size:10px;color:var(--a-tx3);margin-bottom:2px">{{ f[0] }}</div>
+              <div style="font-size:12px;font-weight:600;color:var(--a-tx1)">{{ f[1] }}</div>
+            </div>
+          }
+          @if (u.role === 'chauffeur') {
+            <div style="padding:10px 0;border-bottom:1px solid var(--a-border);grid-column:1/-1">
+              <div style="font-size:10px;color:var(--a-tx3);margin-bottom:2px">Véhicule assigné</div>
+              <div style="font-size:12px;font-weight:600;color:var(--a-tx1)">
+                @if (u.busId) {
+                  🚐 {{ busName(u.busId) }}
+                  <span class="a-mono" style="font-size:10px;color:var(--a-tx3);margin-left:6px">{{ busPlate(u.busId) }}</span>
+                } @else {
+                  <span style="color:var(--a-amber)">Aucun véhicule assigné</span>
+                }
+              </div>
+            </div>
+          }
+        </div>
+        @if (resetLink()) {
+          <div style="margin-top:16px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:14px 16px">
+            <div style="font-size:11px;font-weight:700;color:var(--a-amber);margin-bottom:6px">Lien de réinitialisation (valable 24 h, usage unique)</div>
+            <div class="a-mono" style="font-size:11px;color:var(--a-tx1);word-break:break-all;margin-bottom:8px">{{ resetLink() }}</div>
+            <button class="a-btn ghost sm" style="color:var(--a-cyan)" (click)="copyLink()">Copier le lien</button>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- TAB PERMISSIONS -->
+    @if (activeTab() === 'permissions') {
+      <div class="a-card" style="padding:0;overflow:hidden">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--a-border);display:flex;align-items:center;gap:12px">
+          <div style="width:10px;height:10px;border-radius:50%" [style.background]="roleColor(u.role)"></div>
+          <div style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ roleLabel(u.role) }}</div>
+          <span class="a-mono" style="font-size:10px;color:var(--a-tx3)">{{ countPerms(u.role) }} / {{ permKeys.length }} permissions actives</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">
+          @for (group of permGroups; track group) {
+            @if (permsInGroup(u.role, group).length > 0) {
+              <div style="padding:14px 18px;border-right:1px solid var(--a-border);border-bottom:1px solid var(--a-border)">
+                <div class="a-mono" style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--a-tx3);margin-bottom:9px">{{ group }}</div>
+                @for (p of permsInGroup(u.role, group); track p.key) {
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                    <div style="width:16px;height:16px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0"
+                         [style.background]="p.value ? roleBg(u.role) : 'rgba(100,116,139,.08)'"
+                         [style.color]="p.value ? roleColor(u.role) : 'var(--a-tx3)'">{{ p.value ? '✓' : '—' }}</div>
+                    <span style="font-size:11px" [style.color]="p.value ? 'var(--a-tx1)' : 'var(--a-tx3)'">{{ permLabel(p.key) }}</span>
+                  </div>
+                }
+              </div>
+            }
+          }
+        </div>
+      </div>
+    }
+
+    <!-- TAB HISTORIQUE RÔLES -->
+    @if (activeTab() === 'history') {
+      @if (roleLog().length === 0) {
+        <div class="a-card" style="padding:48px;text-align:center">
+          <div style="font-size:32px;margin-bottom:12px">📜</div>
+          <div style="font-size:13px;color:var(--a-tx3)">Aucun changement de rôle enregistré</div>
+        </div>
+      } @else {
+        <div style="display:flex;flex-direction:column;gap:8px">
+          @for (rc of roleLog(); track rc.id) {
+            <div class="a-card" style="padding:14px 18px">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+                <span class="a-mono" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px"
+                      [style.background]="roleBg(rc.fromRole)" [style.color]="roleColor(rc.fromRole)">{{ roleLabel(rc.fromRole) }}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--a-tx3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                <span class="a-mono" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px"
+                      [style.background]="roleBg(rc.toRole)" [style.color]="roleColor(rc.toRole)">{{ roleLabel(rc.toRole) }}</span>
+                <span class="a-mono" style="font-size:10px;color:var(--a-tx3);margin-left:auto">{{ rc.changedAt | date:'dd/MM/yyyy HH:mm' }}</span>
+              </div>
+              <div style="font-size:11px;color:var(--a-tx3)">Par <span style="color:var(--a-tx2);font-weight:600">{{ roleChangeActor(rc) }}</span></div>
+              @if (rc.reason) {
+                <div style="margin-top:6px;font-size:11px;color:var(--a-tx2);font-style:italic;padding:6px 10px;background:var(--a-bg3);border-radius:6px">{{ rc.reason }}</div>
+              }
+            </div>
+          }
+        </div>
+      }
+    }
+
+    <!-- TAB ACTIVITÉ ─────────────────────────────────────────────────────── -->
+    @if (activeTab() === 'activity' && auth.can('canManageUsers')) {
+      <div style="margin-bottom:14px">
+        <!-- Filtres par catégorie -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+          <button (click)="setAuditFilter('all')"
+                  [class]="'a-btn sm ' + (auditFilter() === 'all' ? 'primary' : 'ghost')"
+                  style="font-size:10px">
+            Tout ({{ auditSvc.getForAdmin(user()!.id).length }})
+          </button>
+          @for (cat of auditCategories; track cat) {
+            @if (auditSvc.getByCategory(user()!.id, cat).length > 0) {
+              <button (click)="setAuditFilter(cat)"
+                      [class]="'a-btn sm ' + (auditFilter() === cat ? 'primary' : 'ghost')"
+                      style="font-size:10px">
+                {{ auditSvc.categoryIcon(cat) }} {{ auditSvc.categoryLabel(cat) }}
+                ({{ auditSvc.getByCategory(user()!.id, cat).length }})
+              </button>
+            }
+          }
+        </div>
+
+        <div style="margin-bottom:12px;padding:10px 14px;background:var(--a-bg3);border:1px solid var(--a-border);border-radius:8px;font-size:11px;color:var(--a-tx3)">
+          🔒 Le journal d'activité est conservé par le serveur et ne peut être ni modifié ni supprimé.
+        </div>
+
+        @if (auditLog().length === 0) {
+          <div class="a-card" style="padding:48px;text-align:center">
+            <div style="font-size:36px;margin-bottom:12px">⚡</div>
+            <div style="font-size:14px;font-weight:600;color:var(--a-tx2);margin-bottom:6px">Aucune activité enregistrée</div>
+            <div style="font-size:12px;color:var(--a-tx3)">Les actions effectuées par cet utilisateur apparaîtront ici.</div>
+          </div>
+        } @else {
+
+          <!-- Timeline des actions -->
+          <div style="position:relative;padding-left:28px">
+            <!-- Ligne verticale de la timeline -->
+            <div style="position:absolute;left:10px;top:0;bottom:0;width:2px;background:var(--a-border);border-radius:1px"></div>
+
+            @for (entry of auditLog(); track entry.id; let i = $index) {
+              <div style="position:relative;margin-bottom:10px">
+                <!-- Point sur la timeline -->
+                <div style="position:absolute;left:-24px;top:12px;width:12px;height:12px;border-radius:50%;border:2px solid var(--a-bg2)"
+                     [style.background]="auditSvc.severityColor(entry.severity)">
+                </div>
+
+                <div class="a-card" style="padding:12px 14px;cursor:pointer;transition:box-shadow .15s"
+                     [style.border-left]="'3px solid ' + auditSvc.severityColor(entry.severity)"
+                     [style.box-shadow]="selectedEntry()?.id === entry.id ? '0 0 0 2px ' + auditSvc.severityColor(entry.severity) : ''"
+                     (click)="openEntryDetail(entry)">
+                  <div style="display:flex;align-items:flex-start;gap:10px">
+                    <!-- Icône catégorie -->
+                    <div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0"
+                         [style.background]="auditSvc.severityColor(entry.severity) + '18'">
+                      {{ auditSvc.categoryIcon(entry.category) }}
+                    </div>
+                    <div style="flex:1;min-width:0">
+                      <!-- Action + horodatage -->
+                      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px">
+                        <span style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ entry.action }}</span>
+                        <span style="font-size:9px;padding:1px 7px;border-radius:8px;font-weight:600"
+                              [style.background]="auditSvc.severityColor(entry.severity) + '18'"
+                              [style.color]="auditSvc.severityColor(entry.severity)">
+                          {{ auditSvc.categoryLabel(entry.category) }}
+                        </span>
+                        <span class="a-mono" style="font-size:10px;color:var(--a-tx3);margin-left:auto">
+                          {{ entry.createdAt | date:'dd/MM/yyyy HH:mm:ss' }}
+                        </span>
+                      </div>
+                      <!-- Ressource cible -->
+                      @if (entry.targetName) {
+                        <div style="font-size:11px;color:var(--a-tx2);margin-bottom:3px">
+                          🎯 <span style="font-weight:600">{{ entry.targetName }}</span>
+                        </div>
+                      }
+                      <!-- Détails -->
+                      @if (entry.details) {
+                        <div style="font-size:11px;color:var(--a-tx3);padding:5px 9px;background:var(--a-bg3);border-radius:5px;margin-top:4px">
+                          {{ entry.details }}
+                        </div>
+                      }
+                    </div>
+                    <!-- Actions rapides -->
+                    <div style="display:flex;gap:4px;flex-shrink:0;align-self:flex-start;margin-top:2px">
+                      <button class="a-btn ghost sm" style="padding:3px 7px;font-size:10px"
+                              (click)="$event.stopPropagation(); openEntryDetail(entry)" title="Voir le détail">🔍</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    <!-- TAB EMAILS -->
+    @if (activeTab() === 'emails') {
+      @if (userEmails().length === 0) {
+        <div class="a-card" style="padding:48px;text-align:center">
+          <div style="font-size:32px;margin-bottom:12px">📭</div>
+          <div style="font-size:13px;color:var(--a-tx3)">Aucun email envoyé à ce compte</div>
+        </div>
+      } @else {
+        <div style="display:flex;flex-direction:column;gap:10px">
+          @for (eml of userEmails(); track eml.id) {
+            <div class="a-card" style="padding:16px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+
+                  <span class="a-mono" style="font-size:9px;padding:2px 8px;border-radius:4px;font-weight:700"
+                        [style.background]="emailTypeColor(eml.status)+'18'" [style.color]="emailTypeColor(eml.status)">{{ email.label(eml.template) }}</span>
+                  <span style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ eml.subject }}</span>
+                </div>
+                <span class="a-mono" style="font-size:9px;color:var(--a-tx3);white-space:nowrap">{{ (eml.sentAt || eml.createdAt) | date:'dd/MM/yy HH:mm' }}</span>
+              </div>
+              <pre style="font-size:11px;color:var(--a-tx2);white-space:pre-wrap;font-family:'IBM Plex Mono',monospace;background:var(--a-bg3);padding:12px;border-radius:7px;margin:0;line-height:1.7">{{ eml.body }}</pre>
+              <div class="a-mono" style="font-size:9px;color:var(--a-tx3);margin-top:8px">{{ emailStatusLabel(eml.status) }}@if (eml.lastError) { · {{ eml.lastError }} }</div>
+            </div>
+          }
+        </div>
+      }
+    }
+
+  } @else {
+    <div style="text-align:center;padding:80px;color:var(--a-tx3)">Compte introuvable</div>
+  }
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODALES                                                                    -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+@if (modal() !== null && user(); as u) {
+  <div class="a-overlay" (click)="closeModal()">
+    <div class="a-modal a-fade" style="max-width:480px" (click)="$event.stopPropagation()">
+
+      <!-- Modifier infos -->
+      @if (modal() === 'editInfo') {
+        <div class="a-modal-header">
+          <div class="a-modal-title">Modifier les informations</div>
+          <button class="a-btn ghost sm" (click)="closeModal()" style="padding:4px 8px">✕</button>
+        </div>
+        <div class="a-modal-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+            <div><label class="a-form-label">Prénom</label><input class="a-input" [(ngModel)]="editInfoForm.firstName"/></div>
+            <div><label class="a-form-label">Nom</label><input class="a-input" [(ngModel)]="editInfoForm.lastName" style="text-transform:uppercase"/></div>
+          </div>
+          <div><label class="a-form-label">Email</label><input class="a-input" type="email" [(ngModel)]="editInfoForm.email"/></div>
+        </div>
+        <div class="a-modal-footer">
+          <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+          <button class="a-btn primary sm" (click)="submitEditInfo()">Enregistrer</button>
+        </div>
+      }
+
+      <!-- Changer le rôle -->
+      @if (modal() === 'changeRole') {
+        <div class="a-modal-header">
+          <div class="a-modal-title">Changer le rôle — {{ u.firstName }} {{ u.lastName }}</div>
+          <button class="a-btn ghost sm" (click)="closeModal()" style="padding:4px 8px">✕</button>
+        </div>
+        <div class="a-modal-body">
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+            @for (r of adminRoles(); track r.id) {
+              <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;border:2px solid;transition:all .15s"
+                     [style.border-color]="roleForm.role===r.id?r.color:'var(--a-border)'"
+                     [style.background]="roleForm.role===r.id?r.color+'18':'var(--a-bg3)'">
+                <input type="radio" name="roleR" [value]="r.id" [(ngModel)]="roleForm.role" style="accent-color:var(--a-cyan);flex-shrink:0"/>
+                <div style="flex:1">
+                  <div style="font-size:12px;font-weight:600" [style.color]="r.color">{{ r.name }}</div>
+                  <div style="height:3px;background:rgba(0,0,0,.1);border-radius:2px;margin-top:4px">
+                    <div style="height:3px;border-radius:2px" [style.background]="r.color" [style.width]="(countPerms(r.id)/permKeys.length*100)+'%'"></div>
+                  </div>
+                  <div class="a-mono" style="font-size:9px;color:var(--a-tx3);margin-top:2px">{{ countPerms(r.id) }}/{{ permKeys.length }} permissions</div>
+                </div>
+                @if (r.id === u.role) { <span class="a-mono" style="font-size:8px;color:var(--a-tx3)">Actuel</span> }
+              </label>
+            }
+          </div>
+          <label class="a-form-label">Raison (optionnel)</label>
+          <textarea class="a-input" rows="2" style="resize:vertical" placeholder="Enregistrée dans l'historique et incluse dans l'email automatique" [(ngModel)]="roleForm.reason"></textarea>
+          @if (roleForm.role !== u.role) {
+            <div style="margin-top:10px;background:rgba(6,182,212,.07);border:1px solid rgba(6,182,212,.2);border-radius:8px;padding:10px 12px;font-size:10px;color:var(--a-cyan)">
+              📧 Un email de notification sera automatiquement envoyé à {{ u.email }}
+            </div>
+          }
+        </div>
+        <div class="a-modal-footer">
+          <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+          <button class="a-btn primary sm" (click)="submitChangeRole()">Appliquer</button>
+        </div>
+      }
+
+      <!-- Réinitialiser MDP -->
+      @if (modal() === 'resetPwd') {
+        <div class="a-modal-header">
+          <div class="a-modal-title" style="color:var(--a-amber)">Réinitialiser le mot de passe</div>
+          <button class="a-btn ghost sm" (click)="closeModal()" style="padding:4px 8px">✕</button>
+        </div>
+        <div class="a-modal-body">
+          <div style="background:var(--a-bg3);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--a-tx1)">
+            {{ u.firstName }} {{ u.lastName }} · {{ u.email }}
+          </div>
+          <div style="font-size:12px;color:var(--a-tx2);line-height:1.6;margin-bottom:12px">
+            Un lien à usage unique, valable 24 heures, est créé. La personne choisit elle-même son nouveau mot de passe :
+            vous ne le connaissez jamais. Ses appareils connectés sont déconnectés dès que le mot de passe est changé.
+          </div>
+          <button class="a-btn ghost sm" style="width:100%;justify-content:center;color:var(--a-cyan)" [disabled]="busy()" (click)="generateLink()">
+            🔗 Créer le lien de réinitialisation
+          </button>
+          @if (resetLink()) {
+            <div class="a-mono" style="margin-top:12px;font-size:11px;color:var(--a-tx1);word-break:break-all;background:var(--a-bg3);padding:10px;border-radius:8px">{{ resetLink() }}</div>
+            <button class="a-btn ghost sm" style="margin-top:8px" (click)="copyLink()">Copier le lien</button>
+          }
+        </div>
+        <div class="a-modal-footer">
+          <button class="a-btn primary sm" (click)="closeModal()">Fermer</button>
+        </div>
+      }
+
+      <!-- Supprimer -->
+      @if (modal() === 'delete') {
+        <div class="a-modal-header">
+          <div class="a-modal-title" style="color:var(--a-red)">Supprimer le compte</div>
+          <button class="a-btn ghost sm" (click)="closeModal()" style="padding:4px 8px">✕</button>
+        </div>
+        <div class="a-modal-body">
+          <div style="background:var(--a-bg3);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:700;color:var(--a-tx1)">{{ u.firstName }} {{ u.lastName }} — {{ roleLabel(u.role) }}</div>
+          <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:12px;font-size:12px;color:var(--a-red)">⚠ Action irréversible.</div>
+        </div>
+        <div class="a-modal-footer">
+          <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+          <button class="a-btn sm" style="background:rgba(239,68,68,.15);color:var(--a-red);border:1px solid rgba(239,68,68,.3)" (click)="confirmDelete()">Supprimer</button>
+        </div>
+      }
+    </div>
+  </div>
+}
+<!-- ══ Modal Détail d'activité ══════════════════════════════════════════════ -->
+@if (selectedEntry(); as entry) {
+  <div class="a-modal-overlay" (click)="closeEntryDetail()">
+    <div class="a-modal" style="max-width:560px;padding:0;overflow:hidden" (click)="$event.stopPropagation()">
+
+      <!-- Header coloré selon sévérité -->
+      <div style="padding:20px 24px 18px;display:flex;align-items:flex-start;gap:14px"
+           [style.background]="auditSvc.severityColor(entry.severity) + '15'"
+           [style.border-bottom]="'2px solid ' + auditSvc.severityColor(entry.severity) + '40'">
+        <div style="width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0"
+             [style.background]="auditSvc.severityColor(entry.severity) + '20'">
+          {{ auditSvc.categoryIcon(entry.category) }}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:800;color:var(--a-tx1);margin-bottom:4px">{{ entry.action }}</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700"
+                  [style.background]="auditSvc.severityColor(entry.severity) + '20'"
+                  [style.color]="auditSvc.severityColor(entry.severity)">
+              {{ entry.severity | uppercase }}
+            </span>
+            <span style="font-size:11px;color:var(--a-tx3)">{{ auditSvc.categoryLabel(entry.category) }}</span>
+          </div>
+        </div>
+        <button class="a-btn ghost sm" (click)="closeEntryDetail()" style="flex-shrink:0;padding:4px 6px">✕</button>
+      </div>
+
+      <!-- Champs détail -->
+      <div style="padding:0 24px">
+        @for (row of [
+          ['📅 Date & heure',  entry.createdAt | date:'dd/MM/yyyy HH:mm:ss'],
+          ['🆔 ID entrée',     entry.id],
+          ['🔐 ID public auteur', entry.adminPublicId ?? user()?.publicId ?? '—'],
+          ['📂 Catégorie',     auditSvc.categoryLabel(entry.category)]
+        ]; track row[0]) {
+          <div style="display:flex;gap:14px;padding:10px 0;border-bottom:1px solid var(--a-border)">
+            <div style="font-size:11px;color:var(--a-tx3);min-width:130px;font-weight:600">{{ row[0] }}</div>
+            <div class="a-mono" style="font-size:11px;color:var(--a-tx1)">{{ row[1] }}</div>
+          </div>
+        }
+        @if (entry.targetName) {
+          <div style="display:flex;gap:14px;padding:10px 0;border-bottom:1px solid var(--a-border)">
+            <div style="font-size:11px;color:var(--a-tx3);min-width:130px;font-weight:600">🎯 Ressource</div>
+            <div style="font-size:12px;font-weight:600;color:var(--a-tx1)">{{ entry.targetName }}</div>
+          </div>
+        }
+        @if (entry.targetId) {
+          <div style="display:flex;gap:14px;padding:10px 0;border-bottom:1px solid var(--a-border)">
+            <div style="font-size:11px;color:var(--a-tx3);min-width:130px;font-weight:600">🔑 ID ressource</div>
+            <div class="a-mono" style="font-size:10px;color:var(--a-tx3)">{{ entry.targetId }}</div>
+          </div>
+        }
+        @if (entry.details) {
+          <div style="padding:12px 0;border-bottom:1px solid var(--a-border)">
+            <div style="font-size:11px;color:var(--a-tx3);font-weight:600;margin-bottom:6px">📝 Détails</div>
+            <div style="font-size:12px;color:var(--a-tx1);padding:10px 12px;background:var(--a-bg3);border-radius:7px;line-height:1.5">
+              {{ entry.details }}
+            </div>
+          </div>
+        }
+        @if (entry.diff && entry.diff.length > 0) {
+          <div style="padding:12px 0">
+            <div style="font-size:11px;color:var(--a-tx3);font-weight:600;margin-bottom:8px">🔄 Modifications (avant → après)</div>
+            <div style="border:1px solid var(--a-border);border-radius:8px;overflow:hidden">
+              <!-- En-tête -->
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--a-bg3);padding:6px 12px;font-size:10px;font-weight:700;color:var(--a-tx3);text-transform:uppercase;letter-spacing:.5px">
+                <span>Champ</span><span>Avant</span><span>Après</span>
+              </div>
+              @for (d of entry.diff; track d.field) {
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;padding:8px 12px;border-top:1px solid var(--a-border);align-items:center"
+                     [style.background]="$even ? 'var(--a-bg2)' : 'transparent'">
+                  <span style="font-size:11px;font-weight:600;color:var(--a-tx2)">{{ d.label }}</span>
+                  <span style="font-size:11px;color:var(--a-red);font-family:'IBM Plex Mono',monospace;text-decoration:line-through;opacity:.8">
+                    {{ d.before }}
+                  </span>
+                  <span style="font-size:11px;color:var(--a-green);font-family:'IBM Plex Mono',monospace;font-weight:700">
+                    ✓ {{ d.after }}
+                  </span>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Envoi par email (formulaire inline) -->
+      @if (showMailForm()) {
+        <div style="padding:14px 24px;background:var(--a-bg3);border-top:1px solid var(--a-border)">
+          <div style="font-size:11px;font-weight:600;color:var(--a-tx2);margin-bottom:8px">📧 Envoyer ce rapport par email</div>
+          <div style="display:flex;gap:8px">
+            <input class="a-input" type="email" [(ngModel)]="mailTo"
+                   placeholder="destinataire@email.com" style="flex:1;font-size:12px" />
+            <button class="a-btn primary sm" (click)="sendByEmail()">Envoyer</button>
+            <button class="a-btn ghost sm" (click)="showMailForm.set(false)">✕</button>
+          </div>
+        </div>
+      }
+
+      <!-- Actions footer -->
+      <div class="a-modal-footer" style="gap:8px;padding:14px 24px;border-top:1px solid var(--a-border)">
+        <button class="a-btn ghost sm" (click)="closeEntryDetail()">Fermer</button>
+        <div style="display:flex;gap:6px;margin-left:auto">
+          <button class="a-btn ghost sm" (click)="showMailForm.set(!showMailForm())"
+                  style="display:flex;align-items:center;gap:5px;font-size:11px">
+            📧 Email
+          </button>
+          <button class="a-btn ghost sm" (click)="downloadPdf()"
+                  style="display:flex;align-items:center;gap:5px;font-size:11px">
+            ⬇ Télécharger
+          </button>
+          <button class="a-btn primary sm" (click)="printEntry()"
+                  style="display:flex;align-items:center;gap:5px;font-size:11px">
+            🖨 Imprimer
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+}

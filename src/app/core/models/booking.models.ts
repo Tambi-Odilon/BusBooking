@@ -1,134 +1,53 @@
-export type VehicleLayout = 'bus' | 'minibus16' | 'minibus10';
+export type VehicleLayout = string;   // 'bus' | 'minibus16' | 'minibus10' ou un plan personnalisé
 
-export interface SearchParams {
-  from: string;
-  to: string;
-  date: string;
-  passengers: number;
+export interface SearchParams { from: string; to: string; date: string; passengers: number }
+
+/** Un départ proposé à la vente (réponse de l'API de recherche). */
+export interface TripSlot {
+  tripId: string; routeId: string;
+  busId: string; busName: string; busType: string;
+  vehicleLayout: VehicleLayout; capacity: number;
+  departure: string; arrival: string; arrivalDate?: string; duration: string; durationMin: number;
+  departureAt: string; arrivalAt: string; serviceDate: string;
+  price: number; seatsAvailable: number; amenities: string[];
+  fromStation?: string | null; toStation?: string | null;
 }
-
+/** Départ choisi par le client (même forme que TripSlot, conservé sous ce nom pour les écrans existants). */
 export interface Bus {
-  id: string;
-  name: string;
-  type: string;
-  vehicleLayout: VehicleLayout;
-  capacity: number;
-  departure: string;
-  arrival: string;
-  duration: string;
-  price: number;
-  rating: number;
-  seatsAvailable: number;
-  amenities: string[];
+  id: string; tripId: string; name: string; type: string; vehicleLayout: VehicleLayout; capacity: number;
+  departure: string; arrival: string; duration: string; price: number; seatsAvailable: number; amenities: string[];
+  departureAt?: string;
 }
+export interface Passenger { firstName: string; lastName: string; phone: string; gender: string; seatNumber: string; category?: 'adult' | 'child' }
+export interface PopularRoute { from: string; to: string; price: number }
 
-export interface Passenger {
-  firstName:  string;
-  lastName:   string;
-  phone:      string;
-  gender:     string;
-  seatNumber: string;
+export type RouteAvailability =
+  | { status: 'available'; slots: TripSlot[] }
+  | { status: 'no_vehicles'; reason: 'no_trips' | 'full'; message: string }
+  | { status: 'suspended'; reason?: string; until?: string }
+  | { status: 'not_found' }
+  | { status: 'error'; message: string };
+
+export interface SeatRowDef { rowId: string; seats: string[]; isDriverRow?: boolean; aisleAfter?: number }
+export interface SeatState { seat: string; status: 'held' | 'booked'; mine: boolean }
+export interface HoldInfo { token: string; tripId: string; seats: string[]; expiresAt: string; extensionsLeft: number }
+
+/** Réservation telle que renvoyée par l'API. */
+export interface ApiPassenger { id: string; seatNo: string; firstName: string; lastName: string; phone: string | null; gender: string; category: string; price: number; status: string; ticketNumber: string | null; boardedAt: string | null }
+export interface ApiBooking {
+  id: string; reference: string; status: 'pending_payment' | 'confirmed' | 'cancelled' | 'expired' | 'completed' | 'no_show';
+  channel: string; cancelReason: string | null; needsAttention: boolean; attentionNote?: string | null;
+  createdAt: string; expiresAt: string | null; confirmedAt: string | null; cancelledAt: string | null;
+  subtotal: number; serviceFee: number; taxAmount: number; total: number; currency: string;
+  contact: { name: string; phone: string; email: string | null };
+  trip: { tripId: string; fromCity: string; toCity: string; serviceDate: string; departureAt: string; arrivalAt: string; departure: string; arrival: string; duration: string; price: number;
+    vehicleName: string; vehicleType: string; vehicleLayout: string; capacity: number; status: string; fromStation?: string | null; toStation?: string | null };
+  tripStatus: string; plateNumber?: string;
+  passengers: ApiPassenger[]; seats: string[];
+  payment: { status: 'unpaid' | 'pending' | 'paid' | 'refund_pending' | 'partially_refunded' | 'refunded'; method: string | null; paidAmount: number; refundedAmount: number; refundPendingAmount: number; lastPaymentId: string | null; lastPaymentStatus: string | null };
+  canCancel: boolean; canChange: boolean; cancelDeadline: string; refundPercent: number;
+  accessToken?: string;
 }
-
-export interface PopularRoute {
-  from: string;
-  to: string;
-  price: number;
-}
-
-export const POPULAR_ROUTES: PopularRoute[] = [
-  { from: 'Antananarivo', to: 'Toamasina',    price: 35000 },
-  { from: 'Antananarivo', to: 'Fianarantsoa', price: 28000 },
-  { from: 'Antananarivo', to: 'Mahajanga',    price: 45000 },
-  { from: 'Antananarivo', to: 'Toliara',      price: 55000 },
-];
-
-export const MOCK_BUSES: Bus[] = [
-  // ── Grand bus (48 places) ──────────────────────────────────────────────────
-  {
-    id: '1',
-    name: 'Express Côte Est',
-    type: 'Bus Climatisé',
-    vehicleLayout: 'bus',
-    capacity: 48,
-    departure: '06:00', arrival: '12:30', duration: '6h30',
-    price: 35000, rating: 4.8, seatsAvailable: 18,
-    amenities: ['ac', 'wifi', 'charging', 'recliner'],
-  },
-  {
-    id: '2',
-    name: 'Rapide Highlands',
-    type: 'Bus Express',
-    vehicleLayout: 'bus',
-    capacity: 48,
-    departure: '08:30', arrival: '14:00', duration: '5h30',
-    price: 42000, rating: 4.6, seatsAvailable: 12,
-    amenities: ['ac', 'wifi', 'entertainment', 'charging', 'recliner', 'blanket'],
-  },
-  {
-    id: '3',
-    name: 'Confort Panorama',
-    type: 'Bus Standard',
-    vehicleLayout: 'bus',
-    capacity: 48,
-    departure: '10:00', arrival: '17:30', duration: '7h30',
-    price: 28000, rating: 4.3, seatsAvailable: 25,
-    amenities: ['ac', 'recliner'],
-  },
-  {
-    id: '4',
-    name: 'Nuit Étoilée',
-    type: 'Bus de Nuit',
-    vehicleLayout: 'bus',
-    capacity: 48,
-    departure: '21:00', arrival: '05:30', duration: '8h30',
-    price: 38000, rating: 4.5, seatsAvailable: 8,
-    amenities: ['ac', 'blanket', 'recliner', 'charging'],
-  },
-
-  // ── Minibus 16 places ──────────────────────────────────────────────────────
-  // Layout : 2 devant | rangée A=4 | rangées B,C=3 | rangée D=4
-  {
-    id: '5',
-    name: 'Swift Highlands',
-    type: 'Minibus 16 places',
-    vehicleLayout: 'minibus16',
-    capacity: 16,
-    departure: '07:00', arrival: '12:00', duration: '5h00',
-    price: 40000, rating: 4.7, seatsAvailable: 10,
-    amenities: ['ac', 'wifi', 'charging'],
-  },
-  {
-    id: '6',
-    name: 'Côte Express Mini',
-    type: 'Minibus 16 places',
-    vehicleLayout: 'minibus16',
-    capacity: 16,
-    departure: '09:30', arrival: '15:00', duration: '5h30',
-    price: 38000, rating: 4.4, seatsAvailable: 14,
-    amenities: ['ac', 'recliner'],
-  },
-
-  // ── Minibus VIP 10 places ──────────────────────────────────────────────────
-  // Layout : 2 devant | 4 rangées × 2 sièges (gauche + droite)
-  {
-    id: '7',
-    name: 'VIP Prestige',
-    type: 'Minibus VIP 10 places',
-    vehicleLayout: 'minibus10',
-    capacity: 10,
-    departure: '07:30', arrival: '12:00', duration: '4h30',
-    price: 75000, rating: 4.9, seatsAvailable: 6,
-    amenities: ['ac', 'wifi', 'entertainment', 'charging', 'recliner', 'blanket'],
-  },
-  {
-    id: '8',
-    name: 'Elite Transfert',
-    type: 'Minibus VIP 10 places',
-    vehicleLayout: 'minibus10',
-    capacity: 10,
-    departure: '11:00', arrival: '16:00', duration: '5h00',
-    price: 70000, rating: 4.8, seatsAvailable: 8,
-    amenities: ['ac', 'wifi', 'charging', 'recliner'],
-  },
-];
+export interface ApiPayment { id: string; bookingId: string; method: string; simulated: boolean; amount: number; currency: string; status: 'initiated' | 'pending' | 'succeeded' | 'failed' | 'expired' | 'refund_pending' | 'refunded' | 'partially_refunded';
+  failureReason: string | null; clientAction: { type: string; message?: string; url?: string } | null; createdAt: string }
+export interface TicketQr { passengerId: string; ticketNumber: string; seatNo: string; name: string; qrDataUrl: string }

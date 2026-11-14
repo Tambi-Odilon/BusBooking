@@ -1,0 +1,372 @@
+<div class="a-fade">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+    <div>
+      <div style="font-size:18px;font-weight:700;color:var(--a-tx1);letter-spacing:-.4px">Emploi du temps</div>
+      <div class="a-mono" style="font-size:11px;color:var(--a-tx3);margin-top:2px">
+        Glissez les barres → modifier l'heure · Glissez les lignes → changer le rang
+      </div>
+    </div>
+    <select class="a-input" style="width:220px;font-size:11px"
+            [ngModel]="selectedRoute()" (ngModelChange)="selectedRoute.set($event)">
+      <option value="all">Tous les itinéraires</option>
+      @for (r of activeRoutes(); track r.id) {
+        <option [value]="r.id">{{ r.from }} → {{ r.to }}</option>
+      }
+    </select>
+  </div>
+
+  <!-- Calendrier semaine -->
+  <div class="a-card" style="padding:14px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <button class="a-btn ghost sm" (click)="prevWeek()">←</button>
+      <button class="a-btn ghost sm" (click)="goToday()">Aujourd'hui</button>
+      <button class="a-btn ghost sm" (click)="nextWeek()">→</button>
+      <span style="font-size:11px;color:var(--a-tx2);margin-left:4px">
+        {{ weekDays()[0].label }} — {{ weekDays()[6].label }}
+      </span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">
+      @for (day of weekDays(); track day.date) {
+        <div (click)="selectDay(day.date)"
+             style="border-radius:10px;padding:8px 5px;cursor:pointer;transition:all .15s;border:2px solid"
+             [style.border-color]="selectedDate()===day.date ? 'var(--a-cyan)' : day.isToday ? 'var(--a-cyan2)' : 'var(--a-border)'"
+             [style.background]="selectedDate()===day.date ? 'rgba(6,182,212,.09)' : day.isToday ? 'var(--a-bg3)' : 'var(--a-bg2)'">
+          <div style="text-align:center;margin-bottom:5px">
+            <div style="font-size:8.5px;text-transform:uppercase;letter-spacing:.5px;font-weight:600"
+                 [style.color]="day.isToday||selectedDate()===day.date ? 'var(--a-cyan)' : 'var(--a-tx3)'">
+              {{ day.dow }}
+            </div>
+            <div style="font-size:17px;font-weight:700;line-height:1.1"
+                 [style.color]="day.isToday||selectedDate()===day.date ? 'var(--a-cyan)' : 'var(--a-tx1)'">
+              {{ day.dayNum }}
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;min-height:28px">
+            @for (t of day.trips.slice(0,5); track t.id) {
+              <div [style]="'height:4px;border-radius:2px;background:' + tripColor(busLayout(t.busId))"></div>
+            }
+            @if (day.trips.length > 5) {
+              <div style="font-size:7px;color:var(--a-tx3);text-align:center">+{{ day.trips.length-5 }}</div>
+            }
+          </div>
+          <div style="text-align:center;margin-top:4px">
+            @if (day.trips.length > 0) {
+              <span [style]="'font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;' +
+                (selectedDate()===day.date ? 'background:var(--a-cyan);color:#000' : 'background:var(--a-bg4);color:var(--a-tx2)')">
+                {{ day.trips.length }}v
+              </span>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Stats jour -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ fmtDow(selectedDate()) }}</div>
+      <div class="a-mono" style="font-size:10px;color:var(--a-tx3);margin-top:2px">
+        {{ dayStats().total }} voyage(s) · {{ dayStats().routes }} itinéraire(s) · {{ dayStats().buses }} véhicule(s)
+        @if (dayStats().earliest !== '—') {
+          · <span style="color:var(--a-cyan)">{{ dayStats().earliest }}</span>
+          — <span style="color:var(--a-cyan)">{{ dayStats().latest }}</span>
+        }
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;font-size:9px;color:var(--a-tx3)">
+      <span style="display:flex;align-items:center;gap:3px">
+        <span style="width:10px;height:10px;border-radius:2px;background:#0891b2;display:inline-block"></span>Bus 48
+      </span>
+      <span style="display:flex;align-items:center;gap:3px">
+        <span style="width:10px;height:10px;border-radius:2px;background:#10b981;display:inline-block"></span>Mini 16
+      </span>
+      <span style="display:flex;align-items:center;gap:3px">
+        <span style="width:10px;height:10px;border-radius:2px;background:#8b5cf6;display:inline-block"></span>VIP 10
+      </span>
+    </div>
+  </div>
+
+  <!-- Aucun voyage -->
+  @if (dayRouteSlots().length === 0) {
+    <div class="a-card" style="text-align:center;padding:40px;color:var(--a-tx3)">
+      Aucun voyage prévu pour ce jour.
+    </div>
+  }
+
+  <!-- Un bloc par itinéraire -->
+  @for (slot of dayRouteSlots(); track slot.routeId; let i = $index) {
+    <div class="a-card" style="padding:0;overflow:hidden;margin-bottom:14px">
+
+      <!-- Header itinéraire — cliquable pour expand/collapse -->
+      <div (click)="toggleRoute(slot.routeId, i)"
+           style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--a-bg3);border-bottom:1px solid var(--a-border);cursor:pointer;user-select:none;transition:background .15s"
+           [style.background]="isExpanded(slot.routeId, i) ? 'var(--a-bg3)' : 'var(--a-bg2)'">
+        <div [style]="'width:3px;height:32px;border-radius:2px;background:' + (isExpanded(slot.routeId, i) ? 'var(--a-cyan)' : 'var(--a-border)')"></div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ slot.routeLabel }}</div>
+          <div class="a-mono" style="font-size:10px;color:var(--a-tx3)">
+            {{ slot.trips.length }} départ(s)
+            @if (slot.trips.length > 0) {
+              · {{ slot.trips[0].departure }} → {{ slot.trips[slot.trips.length-1].departure }}
+            }
+          </div>
+        </div>
+        <!-- Mini indicateurs de conflits -->
+        <div style="display:flex;gap:4px;align-items:center;margin-right:8px">
+          @for (t of slot.trips; track t.id) {
+            @if (tripConflictMsg(t)) {
+              <span style="width:6px;height:6px;border-radius:50%;background:var(--a-red);display:inline-block" [title]="tripConflictMsg(t) ?? ''"></span>
+            } @else {
+              <span [style]="'width:6px;height:6px;border-radius:50%;background:' + tripColor(busLayout(t.busId))" style="display:inline-block"></span>
+            }
+          }
+        </div>
+        <!-- Icône expand/collapse -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.5" style="color:var(--a-tx3);flex-shrink:0;transition:transform .2s"
+             [style.transform]="isExpanded(slot.routeId, i) ? 'rotate(180deg)' : 'rotate(0deg)'">
+          <path d="m6 9 6 6 6-6"/>
+        </svg>
+      </div>
+
+      <!-- Contenu expandable -->
+      @if (isExpanded(slot.routeId, i)) {
+
+      <!-- Timeline glissable -->
+      <div style="padding:12px 16px 8px;border-bottom:2px solid var(--a-border);overflow-x:auto">
+        <div style="min-width:600px">
+
+          <!-- Axe heures -->
+          <div style="display:flex;margin-bottom:3px;padding:0 2px">
+            @for (h of timelineHours; track h) {
+              <div style="flex:1;text-align:left">
+                <span class="a-mono" style="font-size:8px;color:var(--a-tx3)">{{ h < 10 ? '0'+h : h }}h</span>
+              </div>
+            }
+          </div>
+
+          <!-- Zone de drop timeline -->
+          <div #timelineZone
+               style="position:relative;height:auto;background:var(--a-bg3);border-radius:8px;border:1px solid var(--a-border);padding:6px 0"
+               (dragover)="onTimelineDragOver($event, timelineZone)"
+               (dragleave)="onTimelineDragLeave()"
+               (drop)="onTimelineDrop($event, slot, timelineZone)">
+
+            <!-- Grille verticale -->
+            <div style="position:absolute;inset:0;display:flex;pointer-events:none;padding:0 2px">
+              @for (h of timelineHours; track h) {
+                <div style="flex:1;border-left:1px dashed var(--a-border);opacity:.4"></div>
+              }
+            </div>
+
+            <!-- Ligne NOW -->
+            @if (isToday() && nowLeftPct() > 0 && nowLeftPct() < 100) {
+              <div style="position:absolute;top:0;bottom:0;width:2px;background:var(--a-red);opacity:.6;pointer-events:none;z-index:5"
+                   [style.left]="nowLeftPct() + '%'">
+                <div style="position:absolute;top:-12px;left:-12px;font-size:7px;color:var(--a-red);font-family:'IBM Plex Mono',monospace;font-weight:700;background:var(--a-bg3);padding:1px 3px;border-radius:2px">
+                  Maintenant
+                </div>
+              </div>
+            }
+
+            <!-- Ghost pendant drag timeline -->
+            @if (timelineDragId() && timelineGhostMin() >= 0 && timelineRouteId() === slot.routeId) {
+              <div style="position:absolute;top:4px;bottom:4px;width:2px;border-radius:2px;background:var(--a-cyan);opacity:.9;pointer-events:none;z-index:10;box-shadow:0 0 8px var(--a-cyan)"
+                   [style.left]="ghostLeft() + '%'">
+                <div style="position:absolute;top:-20px;left:-18px;font-size:9px;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--a-cyan);background:var(--a-bg3);padding:2px 6px;border-radius:4px;border:1px solid var(--a-cyan2);white-space:nowrap">
+                  {{ ghostTimeLabel() }}
+                </div>
+              </div>
+            }
+
+            <!-- Barres voyages draggables -->
+            <div style="display:flex;flex-direction:column;gap:4px;padding:4px 2px">
+              @for (t of slot.trips; track t.id; let i = $index) {
+                <div style="position:relative;height:28px">
+                  <div draggable="true"
+                       (dragstart)="onTimelineDragStart($event, t.id, slot.routeId)"
+                       (dragend)="onTimelineDragEnd()"
+                       style="position:absolute;top:0;height:28px;border-radius:5px;display:flex;align-items:center;padding:0 7px;gap:4px;cursor:grab;user-select:none;box-shadow:0 2px 6px rgba(0,0,0,.2);transition:opacity .15s"
+                       [style.left]="tripLeft(t.departure) + '%'"
+                       [style.width]="tripWidth(t.departure, t.arrival) + '%'"
+                       [style.background]="tripConflictMsg(t) ? 'var(--a-red)' : tripColor(busLayout(t.busId))"
+                       [style.color]="'#fff'"
+                       [style.opacity]="timelineDragId()===t.id ? '0.3' : '1'"
+                       [style.box-shadow]="tripConflictMsg(t) ? '0 0 0 2px rgba(239,68,68,.4),0 2px 6px rgba(239,68,68,.3)' : '0 2px 6px rgba(0,0,0,.2)'"
+                       [title]="tripConflictMsg(t) ? '⚠ ' + tripConflictMsg(t) : 'Glisser pour déplacer · ' + t.departure + '–' + t.arrival">
+                    <span style="font-weight:800;font-size:9px;font-family:'IBM Plex Mono',monospace;flex-shrink:0;background:rgba(0,0,0,.2);padding:1px 4px;border-radius:3px">
+                      R{{ t.rank ?? i+1 }}
+                    </span>
+                    <span style="font-size:8px;flex-shrink:0">{{ busIcon(t.busId) }}</span>
+                    <span style="font-size:9px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                      {{ t.departure }} {{ busName(t.busId) }}
+                    </span>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <div style="text-align:center;margin-top:5px;font-size:9px;color:var(--a-tx3)">
+            ↔ Glissez une barre pour modifier son heure (accrochage toutes les 30 min)
+          </div>
+        </div>
+      </div>
+
+      <!-- Tableau des rangs -->
+      <div>
+        <div style="padding:7px 16px;font-size:10px;color:var(--a-tx3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;background:var(--a-bg2);border-bottom:1px solid var(--a-border);display:flex;justify-content:space-between;align-items:center">
+          <span>Ordre de départ — glissez pour réorganiser</span>
+          <span style="text-transform:none;font-weight:400;color:var(--a-tx3)">Le véhicule prend l'heure de sa nouvelle position</span>
+        </div>
+
+        @for (t of slot.trips; track t.id; let i = $index) {
+          <!-- Zone de drop avant cette ligne -->
+          <div style="height:3px;transition:background .12s"
+               [style.background]="listDragOver()===i && listDragId() && listDragId()!==t.id ? 'var(--a-cyan)' : 'transparent'"
+               (dragover)="onListDragOver($event, i)"
+               (drop)="onListDrop(slot, i)">
+          </div>
+
+          <div draggable="true"
+               (dragstart)="onListDragStart($event, t.id, slot.routeId)"
+               (dragover)="onListDragOver($event, i)"
+               (drop)="onListDrop(slot, i)"
+               (dragend)="onListDragEnd()"
+               style="display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--a-border);cursor:grab;transition:all .12s;user-select:none"
+               [style.opacity]="listDragId()===t.id ? '0.35' : '1'"
+               [style.background]="listDragOver()===i && listDragId() && listDragId()!==t.id
+                 ? 'rgba(6,182,212,.06)'
+                 : tripConflictMsg(t)
+                   ? 'rgba(239,68,68,.05)'
+                   : 'transparent'"
+               [style.border-left]="tripConflictMsg(t) ? '3px solid var(--a-red)' : '3px solid transparent'"
+               [title]="tripConflictMsg(t) ?? ''">
+
+            <!-- Handle + badge rang -->
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"
+                   style="color:var(--a-tx3)">
+                <circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/>
+                <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                <circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>
+              </svg>
+              <div style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;font-family:'IBM Plex Mono',monospace;flex-shrink:0;position:relative"
+                   [style.background]="tripConflictMsg(t) ? 'var(--a-red)' : tripColor(busLayout(t.busId))">
+                {{ t.rank ?? i+1 }}
+                @if (tripConflictMsg(t)) {
+                  <span style="position:absolute;top:-5px;right:-5px;width:12px;height:12px;border-radius:50%;background:var(--a-red);border:2px solid var(--a-bg2);display:flex;align-items:center;justify-content:center;font-size:7px">⚠</span>
+                }
+              </div>
+            </div>
+
+            <!-- Heure -->
+            <div style="flex-shrink:0;min-width:62px;text-align:center">
+              <div class="a-mono" style="font-size:20px;font-weight:700;line-height:1"
+                   [style.color]="tripConflictMsg(t) ? 'var(--a-red)' : 'var(--a-cyan)'">
+                {{ t.departure }}
+              </div>
+              <div style="font-size:9px" [style.color]="tripConflictMsg(t) ? 'rgba(239,68,68,.7)' : 'var(--a-tx3)'">
+                → {{ t.arrival }}
+              </div>
+              @if (tripConflictMsg(t)) {
+                <div style="font-size:8px;color:var(--a-red);margin-top:2px;font-weight:600;line-height:1.2">
+                  ⚠ Conflit
+                </div>
+              }
+            </div>
+
+            <!-- Véhicule -->
+            <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px">
+              <span style="font-size:20px;line-height:1">{{ busIcon(t.busId) }}</span>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--a-tx1)">{{ busName(t.busId) }}</div>
+                <div class="a-mono" style="font-size:9px;color:var(--a-tx3)">{{ busPlate(t.busId) }}</div>
+              </div>
+            </div>
+
+            <!-- Récurrence + notes -->
+            <div style="flex-shrink:0;min-width:90px">
+              <span style="font-size:9px;background:var(--a-bg3);padding:2px 7px;border-radius:5px;color:var(--a-tx2)">
+                {{ tripsSvc.recurrenceLabel(t.recurrence) }}
+              </span>
+              @if (t.notes) {
+                <div style="font-size:9px;color:var(--a-tx3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px">
+                  {{ t.notes }}
+                </div>
+              }
+            </div>
+
+            <!-- Actions -->
+            @if (auth.can('canManageRoutes')) {
+              <div style="display:flex;gap:3px;flex-shrink:0">
+                <button class="a-btn ghost sm" style="padding:3px 7px;font-size:12px;font-weight:700"
+                        title="Monter" (click)="moveUp(slot, i)" [disabled]="i===0">↑</button>
+                <button class="a-btn ghost sm" style="padding:3px 7px;font-size:12px;font-weight:700"
+                        title="Descendre" (click)="moveDown(slot, i)" [disabled]="i===slot.trips.length-1">↓</button>
+                <button class="a-btn ghost sm" style="padding:3px 8px;font-size:10px"
+                        title="Modifier" (click)="openEdit(t)">✏️</button>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- Zone de drop en fin de liste -->
+        <div style="height:4px;transition:background .12s"
+             [style.background]="listDragOver()===slot.trips.length && listDragId() ? 'var(--a-cyan)' : 'transparent'"
+             (dragover)="onListDragOver($event, slot.trips.length)"
+             (drop)="onListDrop(slot, slot.trips.length)">
+        </div>
+      </div>
+
+      } <!-- end @if isExpanded -->
+
+    </div>
+  }
+
+</div>
+
+<!-- Modal édition rapide -->
+@if (editingTrip(); as t) {
+  <div class="a-modal-overlay" (click)="closeEdit()">
+    <div class="a-modal" style="max-width:400px" (click)="$event.stopPropagation()">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <div style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px"
+             [style.background]="tripColor(busLayout(t.busId))">
+          {{ busIcon(t.busId) }}
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--a-tx1)">{{ t.from }} → {{ t.to }}</div>
+          <div class="a-mono" style="font-size:10px;color:var(--a-tx3)">{{ busName(t.busId) }} · {{ busPlate(t.busId) }}</div>
+        </div>
+      </div>
+      <div style="margin-bottom:14px">
+        <label class="a-form-label">Heure de départ</label>
+        <input class="a-input" type="time" [(ngModel)]="editDeparture"
+               (change)="checkEditConflict()"
+               style="font-size:22px;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--a-cyan)" />
+        <div style="font-size:10px;color:var(--a-tx3);margin-top:4px">L'arrivée sera recalculée automatiquement</div>
+        @if (editConflictMsg()) {
+          <div style="margin-top:8px;padding:10px 12px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:8px;font-size:11px;color:var(--a-red);line-height:1.5">
+            ⚠️ {{ editConflictMsg() }}
+          </div>
+        }
+      </div>
+      <div style="margin-bottom:16px">
+        <label class="a-form-label">Notes</label>
+        <input class="a-input" [(ngModel)]="editNotes" placeholder="Remarques…" />
+      </div>
+      <div style="padding:10px 14px;background:var(--a-bg3);border-radius:8px;margin-bottom:16px;font-size:11px;color:var(--a-tx2)">
+        Récurrence : {{ tripsSvc.recurrenceLabel(t.recurrence) }} · Rang :
+        <span style="font-weight:700" [style.color]="tripColor(busLayout(t.busId))">{{ t.rank ?? '—' }}</span>
+      </div>
+      <div class="a-modal-footer">
+        <button class="a-btn ghost sm" (click)="closeEdit()">Annuler</button>
+        <button class="a-btn primary sm" (click)="saveEdit()" [disabled]="!!editConflictMsg()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+}

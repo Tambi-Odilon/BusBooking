@@ -1,0 +1,481 @@
+<div class="a-fade">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+    <div>
+      <div style="font-size:18px;font-weight:700;color:var(--a-tx1);letter-spacing:-.4px">Publicités</div>
+      <div class="a-mono" style="font-size:11px;color:var(--a-tx3);margin-top:3px">
+        Gérez les bannières affichées côté client
+      </div>
+    </div>
+    @if (auth.can('canManageSettings')) {
+      <button class="a-btn primary sm" (click)="openAdd()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        Nouvelle publicité
+      </button>
+    }
+  </div>
+
+  <!-- Stats -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;margin-bottom:18px">
+    <adm-stat label="Total" [value]="adsSvc.stats().total" sub="publicités créées" color="a-cyan" />
+    <adm-stat label="Actives" [value]="adsSvc.stats().active" sub="en ligne maintenant" color="a-green" />
+    <adm-stat label="Vues totales" [value]="adsSvc.stats().totalViews" sub="impressions" color="a-blue" />
+    <adm-stat label="Clics totaux" [value]="adsSvc.stats().totalClicks" sub="interactions" color="a-amber" />
+  </div>
+
+  <!-- Filtres -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    @for (opt of [['all','Toutes'],['active','Actives'],['paused','Pausées'],['expired','Expirées'],['scheduled','Planifiées']]; track opt[0]) {
+      <button (click)="filterStatus.set(opt[0] === 'all' ? 'all' : opt[0] === 'active' ? 'active' : opt[0] === 'paused' ? 'paused' : opt[0] === 'expired' ? 'expired' : 'scheduled')"
+              [style]="filterStatus() === opt[0]
+                ? 'background:var(--a-cyan2);color:#000;padding:5px 12px;border-radius:7px;font-size:11px;font-weight:600;border:none;cursor:pointer'
+                : 'background:transparent;color:var(--a-tx2);padding:5px 12px;border-radius:7px;font-size:11px;border:1px solid var(--a-border);cursor:pointer'">
+        {{ opt[1] }}
+      </button>
+    }
+  </div>
+
+  <!-- Liste publicités -->
+  <div style="display:flex;flex-direction:column;gap:10px">
+    @for (ad of filtered(); track ad.id) {
+      <div class="a-card" style="padding:14px 16px;display:flex;align-items:stretch;gap:14px;flex-wrap:wrap">
+
+        <!-- Aperçu couleur -->
+        <div [style]="'width:8px;border-radius:4px;background:' + ad.bgColor + ';flex-shrink:0'"></div>
+
+        <!-- Infos principales -->
+        <div style="flex:1;min-width:200px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap">
+            <span style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ ad.title }}</span>
+            <span [style]="'font-size:9px;padding:2px 7px;border-radius:10px;background:' + statusColor(ad.status) + '22;color:' + statusColor(ad.status) + ';font-weight:700;font-family:IBM Plex Mono'">
+              {{ statusLabel(ad.status) }}
+            </span>
+            <span style="font-size:9px;padding:2px 7px;border-radius:10px;background:var(--a-bg3);color:var(--a-tx2);font-weight:600">
+              {{ ad.displayType === 'notification' ? '🔔 Notification' : '📢 Bannière' }}
+            </span>
+            @if (isExpired(ad)) {
+              <span style="font-size:9px;padding:2px 7px;border-radius:10px;background:rgba(239,68,68,.1);color:var(--a-red);font-weight:700">EXPIRÉ</span>
+            }
+          </div>
+          <div style="font-size:11px;color:var(--a-tx2);margin-bottom:8px;line-height:1.4">{{ ad.description }}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:10px;color:var(--a-tx3)">
+            <span class="a-mono" style="background:var(--a-bg3);padding:2px 7px;border-radius:5px">{{ positionLabels[ad.position] }}</span>
+            <span class="a-mono" style="background:var(--a-bg3);padding:2px 7px;border-radius:5px">
+              {{ ad.startDate }} → {{ ad.endDate }}
+            </span>
+            @if (ad.displayType === 'notification') {
+              <span class="a-mono" style="background:rgba(139,92,246,.1);color:#a78bfa;padding:2px 7px;border-radius:5px">⏱ {{ ad.notifDuration }}s · {{ ad.notifPosition }}</span>
+            } @else if ((ad.carouselInterval) > 0) {
+              <span class="a-mono" style="background:rgba(6,182,212,.08);color:var(--a-cyan);padding:2px 7px;border-radius:5px">🔄 {{ ad.carouselInterval }}s</span>
+            }
+            @if (!isExpired(ad) && ad.status === 'active') {
+              <span class="a-mono" style="background:rgba(16,185,129,.08);color:var(--a-green);padding:2px 7px;border-radius:5px">
+                {{ daysLeft(ad) }}j restants
+              </span>
+            }
+            <span class="a-mono" style="background:var(--a-bg3);padding:2px 7px;border-radius:5px">
+              Priorité {{ ad.priority }}
+            </span>
+            @if (ad.pages.length === 0) {
+              <span style="background:var(--a-bg3);padding:2px 7px;border-radius:5px">Toutes les pages</span>
+            } @else {
+              @for (p of ad.pages; track p) {
+                <span style="background:rgba(6,182,212,.08);color:var(--a-cyan);padding:2px 7px;border-radius:5px">{{ p }}</span>
+              }
+            }
+          </div>
+        </div>
+
+        <!-- Stats CTR -->
+        <div style="display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:100px;text-align:right">
+          <div class="a-mono" style="font-size:11px;color:var(--a-tx2)">
+            <span style="color:var(--a-cyan)">{{ ad.views | number }}</span> vues
+          </div>
+          <div class="a-mono" style="font-size:11px;color:var(--a-tx2)">
+            <span style="color:var(--a-amber)">{{ ad.clicks | number }}</span> clics
+          </div>
+          <div class="a-mono" style="font-size:12px;font-weight:700" [style.color]="ad.views > 0 ? 'var(--a-green)' : 'var(--a-tx3)'">
+            CTR {{ ctr(ad) }}
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <button class="a-btn ghost sm" (click)="openPreview(ad)" title="Aperçu">👁</button>
+          @if (auth.can('canManageSettings')) {
+            <button class="a-btn ghost sm" (click)="toggleStatus(ad)" [title]="ad.status === 'active' ? 'Mettre en pause' : 'Activer'">
+              {{ ad.status === 'active' ? '⏸' : '▶' }}
+            </button>
+            <button class="a-btn ghost sm" (click)="openEdit(ad)">✏️</button>
+            <button class="a-btn danger sm" (click)="openDelete(ad)">✕</button>
+          }
+        </div>
+      </div>
+    }
+
+    @if (filtered().length === 0) {
+      <div class="a-card" style="text-align:center;padding:40px;color:var(--a-tx3);font-size:13px">
+        Aucune publicité pour ce filtre.
+        @if (auth.can('canManageSettings')) {
+          <button class="a-btn primary sm" style="margin-left:10px" (click)="openAdd()">Créer une publicité</button>
+        }
+      </div>
+    }
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════
+     Modal Aperçu
+══════════════════════════════════════════════ -->
+@if (modal() === 'preview' && modalAd(); as ad) {
+  <div class="a-modal-overlay" (click)="closeModal()">
+    <div class="a-modal" style="max-width:520px" (click)="$event.stopPropagation()">
+      <div class="a-card-title" style="margin-bottom:14px">Aperçu — {{ positionLabels[ad.position] }}</div>
+
+      <!-- Rendu de la bannière / notification -->
+      <div [style]="'background:' + ad.bgColor + ';color:' + ad.textColor + ';border-radius:12px;overflow:hidden;margin-bottom:14px'">
+
+        <!-- Image haut -->
+        @if (ad.imageUrl && ad.imagePosition === 'top') {
+          <img [src]="ad.imageUrl" alt=""
+               [style.max-height]="ad.imageSize === 'small' ? '60px' : ad.imageSize === 'large' ? '140px' : '100px'"
+               style="width:100%;object-fit:cover;display:block" />
+        }
+
+        <div [style]="'position:relative;' + (ad.imageUrl && ad.imagePosition === 'background' ? 'min-height:90px;' : '')">
+          <!-- Fond image -->
+          @if (ad.imageUrl && ad.imagePosition === 'background') {
+            <img [src]="ad.imageUrl" alt=""
+                 style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.22;pointer-events:none" />
+          }
+          <div style="position:relative;padding:16px 18px;display:flex;align-items:center;gap:12px"
+               [style.flex-direction]="ad.imagePosition === 'right' ? 'row-reverse' : 'row'">
+            <!-- Image gauche/droite -->
+            @if (ad.imageUrl && (ad.imagePosition === 'left' || ad.imagePosition === 'right' || !ad.imagePosition)) {
+              <img [src]="ad.imageUrl" alt=""
+                   style="border-radius:8px;object-fit:cover;flex-shrink:0"
+                   [style.width]="ad.imageSize === 'small' ? '60px' : ad.imageSize === 'large' ? '120px' : '90px'"
+                   [style.height]="ad.imageSize === 'small' ? '60px' : ad.imageSize === 'large' ? '120px' : '90px'" />
+            }
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:15px;margin-bottom:5px">{{ ad.title }}</div>
+              @if (ad.description) {
+                <div style="font-size:12px;opacity:.85">{{ ad.description }}</div>
+              }
+              @if (ad.linkLabel) {
+                <div [style]="'display:inline-flex;align-items:center;gap:5px;margin-top:10px;background:rgba(255,255,255,.22);border:1.5px solid rgba(255,255,255,.4);border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;color:' + ad.textColor">
+                  {{ ad.linkLabel }}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;padding-top:10px;border-top:1px solid var(--a-border)">
+        <button class="a-btn ghost sm" (click)="closeModal()">Fermer</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ══════════════════════════════════════════
+     Modal Supprimer
+══════════════════════════════════════════════ -->
+@if (modal() === 'delete' && modalAd(); as ad) {
+  <div class="a-modal-overlay" (click)="closeModal()">
+    <div class="a-modal" (click)="$event.stopPropagation()">
+      <div style="font-size:15px;font-weight:700;color:var(--a-tx1);margin-bottom:8px">Supprimer cette publicité ?</div>
+      <div style="font-size:12px;color:var(--a-tx2);margin-bottom:20px">« {{ ad.title }} » sera supprimée définitivement.</div>
+      <div class="a-modal-footer">
+        <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+        <button class="a-btn danger sm" (click)="confirmDelete()">Supprimer</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ══════════════════════════════════════════
+     Modal Créer / Modifier
+══════════════════════════════════════════════ -->
+@if (modal() === 'add' || modal() === 'edit') {
+  <div class="a-modal-overlay" (click)="closeModal()">
+    <div class="a-modal" style="max-width:600px;max-height:90vh;overflow-y:auto" (click)="$event.stopPropagation()">
+      <div style="font-size:16px;font-weight:700;color:var(--a-tx1);margin-bottom:18px">
+        {{ modal() === 'add' ? 'Nouvelle publicité' : 'Modifier la publicité' }}
+      </div>
+
+      <!-- Titre + Description -->
+      <div style="margin-bottom:12px">
+        <label class="a-form-label">Titre *</label>
+        <input class="a-input" [(ngModel)]="form.title" placeholder="Ex : Promo juillet — 15% de réduction" />
+      </div>
+      <div style="margin-bottom:12px">
+        <label class="a-form-label">Description</label>
+        <textarea class="a-input" rows="2" [(ngModel)]="form.description" style="resize:vertical;min-height:56px"
+                  placeholder="Message court affiché sous le titre"></textarea>
+      </div>
+
+      <!-- Image / GIF -->
+      <div style="margin-bottom:14px">
+        <label class="a-form-label" style="margin-bottom:8px;display:block">
+          Image ou GIF
+          <span style="font-weight:400;color:var(--a-tx3);font-size:10px;margin-left:6px">JPG, PNG, GIF, WebP — max 2 Mo</span>
+        </label>
+
+        @if (form.imageUrl) {
+          <!-- Aperçu + supprimer -->
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:10px;background:var(--a-bg3);border:1px solid var(--a-border);border-radius:10px;margin-bottom:10px">
+            <img [src]="form.imageUrl" alt="Aperçu"
+                 style="max-height:80px;max-width:140px;object-fit:cover;border-radius:6px;flex-shrink:0;border:1px solid var(--a-border)" />
+            <div style="flex:1;min-width:0">
+              <div style="font-size:11px;color:var(--a-tx1);font-weight:600;margin-bottom:4px">Image chargée</div>
+              <div style="font-size:10px;color:var(--a-tx3);margin-bottom:8px;word-break:break-all;max-height:32px;overflow:hidden">
+                {{ form.imageUrl.startsWith('data:') ? 'Fichier local (base64)' : form.imageUrl }}
+              </div>
+              <button type="button" class="a-btn danger sm" (click)="clearImage()" style="font-size:10px">✕ Supprimer</button>
+            </div>
+          </div>
+        }
+
+        <!-- Upload fichier local -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div>
+            <label class="a-form-label" style="font-size:10px">Depuis votre appareil</label>
+            <label style="display:flex;align-items:center;gap:6px;padding:7px 10px;background:var(--a-bg3);border:1px dashed var(--a-border2);border-radius:8px;cursor:pointer;font-size:11px;color:var(--a-tx2);transition:border-color .15s"
+                   title="Cliquer pour choisir un fichier">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-cyan-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Choisir un fichier…
+              <input type="file" accept="image/*,.gif" style="display:none" (change)="onImageFile($event)" />
+            </label>
+          </div>
+          <div>
+            <label class="a-form-label" style="font-size:10px">Ou URL externe</label>
+            <input class="a-input" type="url" [(ngModel)]="form.imageUrl"
+                   placeholder="https://example.com/image.gif"
+                   style="font-size:11px" />
+          </div>
+        </div>
+
+        <!-- Position + taille (seulement si image présente) -->
+        @if (form.imageUrl) {
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+            <div>
+              <label class="a-form-label" style="font-size:10px">Position</label>
+              <div style="display:flex;gap:5px;flex-wrap:wrap">
+                @for (opt of [['left','◀ Gauche'],['right','▶ Droite'],['top','▲ Haut'],['background','🖼 Fond']]; track opt[0]) {
+                  <button type="button"
+                          (click)="form.imagePosition = opt[0] === 'background' ? 'background' : opt[0] === 'top' ? 'top' : opt[0] === 'right' ? 'right' : 'left'"
+                          [class]="'a-btn sm ' + (form.imagePosition === opt[0] ? 'primary' : 'ghost')"
+                          style="font-size:10px;padding:4px 8px">
+                    {{ opt[1] }}
+                  </button>
+                }
+              </div>
+            </div>
+            <div>
+              <label class="a-form-label" style="font-size:10px">Taille</label>
+              <div style="display:flex;gap:5px">
+                @for (opt of [['small','Petite'],['medium','Moyenne'],['large','Grande']]; track opt[0]) {
+                  <button type="button"
+                          (click)="form.imageSize = opt[0] === 'large' ? 'large' : opt[0] === 'small' ? 'small' : 'medium'"
+                          [class]="'a-btn sm ' + (form.imageSize === opt[0] ? 'primary' : 'ghost')"
+                          style="font-size:10px;padding:4px 8px">
+                    {{ opt[1] }}
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Lien CTA -->
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label class="a-form-label">URL du lien (optionnel)</label>
+          <input class="a-input" [(ngModel)]="form.linkUrl" placeholder="https://..." />
+        </div>
+        <div>
+          <label class="a-form-label">Texte du bouton</label>
+          <input class="a-input" [(ngModel)]="form.linkLabel" placeholder="En savoir plus" />
+        </div>
+      </div>
+
+      <!-- Couleurs -->
+      <div style="margin-bottom:12px">
+        <label class="a-form-label">Couleurs</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+          @for (preset of presetColors; track preset.bg) {
+            <button type="button"
+                    [style]="'width:28px;height:28px;border-radius:6px;background:' + preset.bg + ';border:2px solid ' + (form.bgColor === preset.bg ? 'var(--a-cyan)' : 'transparent') + ';cursor:pointer;transition:all .15s'"
+                    (click)="pickColor(preset.bg, preset.text)"
+                    [title]="preset.label">
+            </button>
+          }
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label class="a-form-label" style="font-size:9px">Fond</label>
+            <input type="color" [(ngModel)]="form.bgColor" class="a-input" style="height:34px;padding:2px 4px;cursor:pointer" />
+          </div>
+          <div style="flex:1">
+            <label class="a-form-label" style="font-size:9px">Texte</label>
+            <input type="color" [(ngModel)]="form.textColor" class="a-input" style="height:34px;padding:2px 4px;cursor:pointer" />
+          </div>
+          <!-- Aperçu live -->
+          <div style="flex:2;display:flex;align-items:flex-end">
+            <div [style]="'flex:1;border-radius:7px;padding:8px 12px;background:' + form.bgColor + ';color:' + form.textColor">
+              <div style="font-weight:700;font-size:11px">{{ form.title || 'Aperçu' }}</div>
+              @if (form.linkLabel) {
+                <div style="font-size:9px;margin-top:3px;opacity:.8;background:rgba(255,255,255,.2);display:inline-block;padding:2px 7px;border-radius:4px">{{ form.linkLabel }}</div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Type d'affichage -->
+      <div style="margin-bottom:12px">
+        <label class="a-form-label">Type d'affichage</label>
+        <div style="display:flex;gap:8px">
+          <button type="button"
+                  (click)="form.displayType = 'banner'; form.position = 'banner_top'"
+                  [class]="'a-btn sm ' + (form.displayType === 'banner' ? 'primary' : 'ghost')"
+                  style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px">
+            📢 <span>Bannière</span>
+          </button>
+          <button type="button"
+                  (click)="form.displayType = 'notification'; form.position = 'notification'"
+                  [class]="'a-btn sm ' + (form.displayType === 'notification' ? 'primary' : 'ghost')"
+                  style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px">
+            🔔 <span>Notification</span>
+          </button>
+        </div>
+        <!-- Description du type -->
+        @if (form.displayType === 'banner') {
+          <div style="font-size:10px;color:var(--a-tx3);margin-top:5px">Affiché dans la page, peut défiler si plusieurs bannières.</div>
+        } @else {
+          <div style="font-size:10px;color:var(--a-tx3);margin-top:5px">Toast en coin bas-droite, disparaît automatiquement après la durée définie.</div>
+        }
+      </div>
+
+      <!-- Position (bannière seulement) -->
+      @if (form.displayType === 'banner') {
+        <div style="margin-bottom:12px">
+          <label class="a-form-label">Position dans la page</label>
+          <select class="a-input" [(ngModel)]="form.position">
+            <option value="banner_top">📢 Bandeau haut de page</option>
+            <option value="banner_bottom">📋 Bandeau bas de page</option>
+            <option value="between_results">🔲 Entre les résultats</option>
+            <option value="sidebar">◀ Colonne latérale</option>
+          </select>
+        </div>
+      }
+
+      <!-- Paramètres selon le type -->
+      @if (form.displayType === 'notification') {
+        <!-- Position de la notification -->
+        <div style="margin-bottom:14px">
+          <label class="a-form-label" style="margin-bottom:8px;display:block">Position d'affichage</label>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+            @for (pos of [
+              ['top-left','↖ Haut gauche'],['top-center','↑ Haut centre'],['top-right','↗ Haut droite'],
+              ['bottom-left','↙ Bas gauche'],['bottom-center','↓ Bas centre'],['bottom-right','↘ Bas droite']
+            ]; track pos[0]) {
+              <button type="button"
+                      (click)="setNotifPosition(pos[0])"
+                      [class]="'a-btn sm ' + (form.notifPosition === pos[0] ? 'primary' : 'ghost')"
+                      style="font-size:10px;justify-content:center;padding:6px 4px">
+                {{ pos[1] }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px">
+          <label class="a-form-label">Durée d'affichage (secondes)
+            <span style="font-weight:400;color:var(--a-tx3);font-size:10px;margin-left:6px">Temps avant fermeture automatique</span>
+          </label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input class="a-input" type="range" min="2" max="30" step="1"
+                   [(ngModel)]="form.notifDuration" style="flex:1;accent-color:var(--a-cyan)" />
+            <span class="a-mono" style="font-size:13px;font-weight:700;color:var(--a-cyan);min-width:36px;text-align:center">{{ form.notifDuration }}s</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--a-tx3);margin-top:2px;padding:0 2px">
+            <span>2s (rapide)</span><span>15s</span><span>30s (long)</span>
+          </div>
+        </div>
+      }
+
+      @if (form.displayType === 'banner') {
+        <div style="margin-bottom:12px">
+          <label class="a-form-label">Intervalle carrousel (secondes)
+            <span style="font-weight:400;color:var(--a-tx3);font-size:10px;margin-left:6px">Si plusieurs bannières — 0 = navigation manuelle uniquement</span>
+          </label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input class="a-input" type="range" min="0" max="20" step="1"
+                   [(ngModel)]="form.carouselInterval" style="flex:1;accent-color:var(--a-cyan)" />
+            <span class="a-mono" style="font-size:13px;font-weight:700;color:var(--a-cyan);min-width:36px;text-align:center">
+              {{ form.carouselInterval === 0 ? 'Manuel' : form.carouselInterval + 's' }}
+            </span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--a-tx3);margin-top:2px;padding:0 2px">
+            <span>Manuel</span><span>10s</span><span>20s</span>
+          </div>
+        </div>
+      }
+
+      <!-- Pages ciblées -->
+      <div style="margin-bottom:12px">
+        <label class="a-form-label">Pages ciblées
+          <span style="font-weight:400;color:var(--a-tx3);font-size:10px;margin-left:6px">Vide = toutes les pages</span>
+        </label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          @for (p of pageOptions; track p.value) {
+            <button type="button"
+                    (click)="togglePage(p.value)"
+                    [class]="'a-btn sm ' + (form.pages.includes(p.value) ? 'primary' : 'ghost')"
+                    style="font-size:10px">
+              {{ p.label }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Dates + priorité + statut -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label class="a-form-label">Date début *</label>
+          <input class="a-input" type="date" [(ngModel)]="form.startDate" />
+        </div>
+        <div>
+          <label class="a-form-label">Date fin *</label>
+          <input class="a-input" type="date" [(ngModel)]="form.endDate" />
+        </div>
+        <div>
+          <label class="a-form-label">Priorité (1-10)</label>
+          <input class="a-input" type="number" min="1" max="10" [(ngModel)]="form.priority" />
+        </div>
+        <div>
+          <label class="a-form-label">Statut</label>
+          <select class="a-input" [(ngModel)]="form.status">
+            <option value="active">Actif</option>
+            <option value="paused">Pausé</option>
+            <option value="scheduled">Planifié</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="a-modal-footer">
+        <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+        <button class="a-btn primary sm" (click)="submit()">
+          {{ modal() === 'add' ? 'Créer la publicité' : 'Enregistrer' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

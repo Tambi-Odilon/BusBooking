@@ -1,383 +1,158 @@
-import { Component, inject, OnInit, OnDestroy, signal, computed } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { BookingService } from '../../core/services/booking.service';
 import { I18nService } from '../../core/services/i18n.service';
 import { SeatLockService } from '../../core/services/seat-lock.service';
-import { MVolaService, MVolaPaymentStatus, MVOLA_CONFIG } from '../../core/services/mvola.service';
-import { OrangeMoneyService, OmPaymentStatus } from '../../core/services/orange-money.service';
-import { AirtelMoneyService, AirtelPaymentStatus } from '../../core/services/airtel-money.service';
+import { PaymentService } from '../../core/services/payment.service';
+import { AuthService } from '../../core/services/auth.service';
+import { AppConfigService, PaymentMethodInfo } from '../../core/config/app-config.service';
+import { ApiError, ApiService } from '../../core/api/api.service';
+import { ApiPayment } from '../../core/models/booking.models';
+import { MoneyPipe } from '../../core/pipes/format.pipes';
 
-export type PaymentMethod  = 'card' | 'upi' | 'netbanking' | 'mobilemoney';
-export type MobileProvider = 'mvola' | 'orangemoney' | 'airtelmoney';
+type Step = 'preparing' | 'form' | 'waiting' | 'failed' | 'timeout' | 'refunded' | 'expired' | 'error';
+const STYLE: Record<string, { short: string; color: string }> = {
+  mvola: { short: 'M', color: 'bg-yellow-500' }, orange_money: { short: 'OM', color: 'bg-orange-500' }, airtel_money: { short: 'AM', color: 'bg-red-600' },
+};
 
+/**
+ * Paiement. La réservation est créée sur le serveur (montant calculé par lui), puis le paiement mobile est lancé par le serveur :
+ * le client valide sur son téléphone et cet écran attend la confirmation de l'opérateur.
+ */
 @Component({
   selector: 'app-payment',
   standalone: true,
-  imports: [FormsModule, DecimalPipe],
+  imports: [FormsModule, MoneyPipe],
   templateUrl: './payment.component.html',
   styleUrl: './payment.component.scss',
 })
 export class PaymentComponent implements OnInit, OnDestroy {
-  private bookingService = inject(BookingService);
-  private seatLockSvc    = inject(SeatLockService);
-  private mvolaService   = inject(MVolaService);
-  private omService      = inject(OrangeMoneyService);
-  private airtelService  = inject(AirtelMoneyService);
-  private router         = inject(Router);
-  readonly i18n          = inject(I18nService);
+  private flow    = inject(BookingService);
+  private seats   = inject(SeatLockService);
+  private pay     = inject(PaymentService);
+  private auth    = inject(AuthService);
+  private router  = inject(Router);
+  private api     = inject(ApiService);
+  readonly i18n   = inject(I18nService);
+  readonly cfg    = inject(AppConfigService);
 
-  readonly selectedBus   = this.bookingService.selectedBus;
-  readonly selectedSeats = this.bookingService.selectedSeats;
-  readonly passengers    = this.bookingService.passengers;
-  readonly searchParams  = this.bookingService.searchParams;
+  readonly selectedBus   = this.flow.selectedBus;
+  readonly selectedSeats = this.flow.selectedSeats;
+  readonly passengers    = this.flow.passengers;
+  readonly searchParams  = this.flow.searchParams;
+  readonly booking       = this.flow.booking;
+  readonly online        = this.api.online;
 
-  readonly paymentMethod  = signal<PaymentMethod>('card');
-  readonly mobileProvider = signal<MobileProvider>('mvola');
-  readonly isProcessing   = signal(false);
+  readonly step     = signal<Step>('preparing');
+  readonly message  = signal<string | null>(null);
+  readonly payment  = signal<ApiPayment | null>(null);
+  readonly methods  = this.cfg.onlinePayments;
+  readonly method   = signal<string>('');
+  readonly isProcessing = computed(() => this.step() === 'preparing' || this.step() === 'waiting');
+  mobilePhone = '';
+  private cancelled = false;
 
-  // ── Compte à rebours verrou siège ────────────────────────────────────────
-  readonly remainingSec = signal<number | null>(null);
-  readonly remainingLabel = computed(() => {
-    const s = this.remainingSec();
-    if (s === null || s <= 0) return null;
-    const min = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${min}:${sec.toString().padStart(2, '0')}`;
+  // Montants : ceux du serveur dès que la réservation existe, une estimation sinon.
+  private readonly est   = computed(() => this.cfg.estimate(this.selectedBus()?.price ?? 0, this.selectedSeats().length));
+  readonly ticketTotal   = computed(() => this.booking()?.subtotal ?? this.est().subtotal);
+  readonly fee           = computed(() => this.booking()?.serviceFee ?? this.est().fee);
+  readonly tax           = computed(() => this.booking()?.taxAmount ?? 0);
+  readonly total         = computed(() => this.booking()?.total ?? this.est().total);
+
+  /** Temps restant : échéance de la réservation en attente (le serveur la prolonge pendant le paiement). */
+  private readonly now = signal(Date.now());
+  private timer: ReturnType<typeof setInterval> | null = null;
+  readonly remainingSec = computed<number | null>(() => {
+    const b = this.booking();
+    if (b?.expiresAt) return Math.max(0, Math.ceil((new Date(b.expiresAt).getTime() - this.now()) / 1000));
+    return this.seats.remainingSeconds();
   });
-  readonly isExpiringSoon = computed(() => {
-    const s = this.remainingSec();
-    return s !== null && s <= 120 && s > 0;
-  });
-  private countdownTimer: ReturnType<typeof setInterval> | null = null;
+  readonly remainingLabel = computed(() => { const s = this.remainingSec(); return s && s > 0 ? `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}` : null; });
+  readonly isExpiringSoon = computed(() => { const s = this.remainingSec(); return s !== null && s <= 120 && s > 0; });
 
-  // ── MVola state ─────────────────────────────────────────────────────────
-  readonly mvolaStatus    = this.mvolaService.paymentStatus;
-  readonly mvolaError     = this.mvolaService.paymentError;
-  readonly mvolaCorrelId  = this.mvolaService.serverCorrelationId;
-  readonly mvolaStep      = signal<'form' | 'waiting'>('form');
-  readonly merchantNumber = MVOLA_CONFIG.merchantNumber;
+  readonly currentMethod = computed<PaymentMethodInfo | undefined>(() => this.methods().find(m => m.code === this.method()));
+  styleOf(code: string) { return STYLE[code] ?? { short: code.slice(0, 2).toUpperCase(), color: 'bg-slate-600' }; }
 
-  // ── Orange Money state ───────────────────────────────────────────────────
-  readonly omStatus     = this.omService.paymentStatus;
-  readonly omError      = this.omService.paymentError;
-  readonly omPaymentUrl = this.omService.paymentUrl;
-  readonly omStep       = signal<'form' | 'waiting'>('form');
-
-  // ── Airtel Money state ───────────────────────────────────────────────────
-  readonly airtelStatus = this.airtelService.paymentStatus;
-  readonly airtelError  = this.airtelService.paymentError;
-  readonly airtelTxId   = this.airtelService.transactionId;
-  readonly airtelStep   = signal<'form' | 'waiting'>('form');
-
-  paymentMethodModel: PaymentMethod   = 'card';
-  mobileProviderModel: MobileProvider = 'mvola';
-
-  cardNumber = ''; cardName = ''; expiry = ''; cvv = ''; upiId = ''; mobilePhone = '';
-
-  get paymentMethods() {
-    const t = this.i18n.t().payment;
-    return [
-      { value: 'card'        as PaymentMethod, label: t.methodCard,   icon: '💳' },
-      { value: 'upi'         as PaymentMethod, label: t.methodUpi,    icon: '📲' },
-      { value: 'netbanking'  as PaymentMethod, label: t.methodBank,   icon: '🏦' },
-      { value: 'mobilemoney' as PaymentMethod, label: t.methodMobile, icon: '📱' },
-    ];
-  }
-
-  readonly mobileProviders: {
-    value: MobileProvider; label: string; subtitle: string; short: string; color: string;
-  }[] = [
-    { value: 'mvola',       label: 'MVola',        subtitle: 'Telma (034, 038)',  short: 'M',  color: 'bg-orange-500' },
-    { value: 'orangemoney', label: 'Orange Money', subtitle: 'Orange (032, 037)', short: 'OM', color: 'bg-orange-600' },
-    { value: 'airtelmoney', label: 'Airtel Money', subtitle: 'Airtel (033)',      short: 'AM', color: 'bg-red-600'    },
-  ];
-
-  readonly ticketTotal = computed(() => {
+  async ngOnInit(): Promise<void> {
     const bus = this.selectedBus();
-    return bus ? bus.price * this.selectedSeats().length : 0;
-  });
-  readonly total = computed(() => this.ticketTotal() + 2000);
-
-  // ── Labels de statut ─────────────────────────────────────────────────────
-  readonly mvolaStatusLabel = computed((): string => {
-    const map: Record<MVolaPaymentStatus, string> = {
-      idle:           '',
-      authenticating: '🔐 Connexion à MVola...',
-      pending:        '📤 Envoi de la demande...',
-      polling:        '⏳ En attente — Validez sur votre téléphone',
-      success:        '✅ Paiement MVola confirmé !',
-      failed:         '❌ Paiement échoué',
-    };
-    return map[this.mvolaStatus()];
-  });
-
-  readonly omStatusLabel = computed((): string => {
-    const map: Record<OmPaymentStatus, string> = {
-      idle:           '',
-      authenticating: '🔐 Connexion à Orange Money...',
-      pending:        '📤 Création du lien de paiement...',
-      waiting_otp:    '📱 Validez votre OTP Orange Money',
-      polling:        '⏳ Vérification du paiement...',
-      success:        '✅ Paiement Orange Money confirmé !',
-      failed:         '❌ Paiement échoué',
-    };
-    return map[this.omStatus()];
-  });
-
-  readonly airtelStatusLabel = computed((): string => {
-    const map: Record<AirtelPaymentStatus, string> = {
-      idle:           '',
-      authenticating: '🔐 Connexion à Airtel Money...',
-      pending:        '📤 Envoi de la demande USSD...',
-      polling:        '⏳ En attente PIN — Validez sur votre téléphone',
-      success:        '✅ Paiement Airtel Money confirmé !',
-      failed:         '❌ Paiement échoué',
-    };
-    return map[this.airtelStatus()];
-  });
-
-  readonly currentStatusLabel = computed((): string => {
-    switch (this.mobileProvider()) {
-      case 'mvola':       return this.mvolaStatusLabel();
-      case 'orangemoney': return this.omStatusLabel();
-      case 'airtelmoney': return this.airtelStatusLabel();
-      default:            return '';
-    }
-  });
-
-  readonly currentStatusColor = computed((): string => {
-    const p = this.mobileProvider();
-    const s = p === 'mvola'       ? this.mvolaStatus()
-            : p === 'orangemoney' ? this.omStatus()
-            :                       this.airtelStatus();
-    if (s === 'success') return 'bg-green-50 border-green-300 text-green-800';
-    if (s === 'failed')  return 'bg-red-50 border-red-300 text-red-800';
-    if (p === 'airtelmoney') return 'bg-red-50 border-red-300 text-red-900';
-    if (p === 'orangemoney') return 'bg-amber-50 border-amber-300 text-amber-900';
-    return 'bg-orange-50 border-orange-300 text-orange-900';
-  });
-
-  readonly currentStep = computed((): 'form' | 'waiting' => {
-    switch (this.mobileProvider()) {
-      case 'mvola':       return this.mvolaStep();
-      case 'orangemoney': return this.omStep();
-      case 'airtelmoney': return this.airtelStep();
-      default:            return 'form';
-    }
-  });
-
-  readonly currentError = computed((): string | null => {
-    switch (this.mobileProvider()) {
-      case 'mvola':       return this.mvolaError();
-      case 'orangemoney': return this.omError();
-      case 'airtelmoney': return this.airtelError();
-      default:            return null;
-    }
-  });
-
-  readonly currentIsPolling = computed((): boolean => {
-    const p = this.mobileProvider();
-    if (p === 'mvola')
-      return ['authenticating', 'pending', 'polling'].includes(this.mvolaStatus());
-    if (p === 'orangemoney')
-      return ['authenticating', 'pending', 'waiting_otp', 'polling'].includes(this.omStatus());
-    if (p === 'airtelmoney')
-      return ['authenticating', 'pending', 'polling'].includes(this.airtelStatus());
-    return false;
-  });
-
-  ngOnInit(): void {
-    if (!this.selectedBus() || !this.selectedSeats().length || !this.passengers().length)
-      this.router.navigate(['/']);
-    // Démarre le countdown du verrou
-    const p = this.searchParams();
-    const b = this.selectedBus();
-    if (p && b) {
-      const busKey = this.seatLockSvc.buildKey(b.id, p.from, p.to, p.date);
-      this.countdownTimer = setInterval(() => {
-        const s = this.seatLockSvc.remainingSeconds(busKey);
-        this.remainingSec.set(s);
-      }, 1000);
-    }
+    if (!bus || !this.selectedSeats().length || !this.passengers().length) { this.router.navigate(['/']); return; }
+    this.timer = setInterval(() => this.now.set(Date.now()), 1000);
+    this.method.set(this.methods()[0]?.code ?? '');
+    this.mobilePhone = this.passengers()[0]?.phone ?? '';
+    await this.prepare();
   }
+  ngOnDestroy(): void { this.cancelled = true; if (this.timer) clearInterval(this.timer); }
 
-  ngOnDestroy(): void {
-    if (this.countdownTimer) clearInterval(this.countdownTimer);
-  }
-
-  // ── Form helpers ─────────────────────────────────────────────────────────
-  formatCard(value: string): void {
-    const nums = value.replace(/\D/g, '').slice(0, 16);
-    this.cardNumber = nums.match(/.{1,4}/g)?.join(' ') ?? nums;
-  }
-
-  formatExpiry(value: string): void {
-    const nums = value.replace(/\D/g, '');
-    this.expiry = nums.length >= 2 ? `${nums.slice(0, 2)}/${nums.slice(2, 4)}` : nums;
-  }
-
-  isFormValid(): boolean {
-    switch (this.paymentMethod()) {
-      case 'card':
-        return (
-          this.cardNumber.replace(/\s/g, '').length === 16 &&
-          !!this.cardName.trim() &&
-          this.expiry.length === 5 &&
-          this.cvv.length === 3
-        );
-      case 'mobilemoney': {
-        const phone = this.mobilePhone.replace(/[\s\-().+]/g, '');
-        if (this.mobileProvider() === 'mvola')
-          return /^(0(34|38)\d{7}|261(34|38)\d{7})$/.test(phone);
-        if (this.mobileProvider() === 'orangemoney')
-          return /^(0(32|37)\d{7}|261(32|37)\d{7})$/.test(phone);
-        if (this.mobileProvider() === 'airtelmoney')
-          return /^(033\d{7}|26133\d{7})$/.test(phone);
-        return !!phone;
+  /** Crée (ou retrouve) la réservation en attente. Rejouable : même clé d'idempotence tant que la sélection ne change pas. */
+  async prepare(): Promise<void> {
+    this.step.set('preparing'); this.message.set(null);
+    const bus = this.selectedBus()!;
+    try {
+      const existing = this.booking();
+      if (existing) {
+        const fresh = await this.pay.refreshBooking();
+        if (fresh?.status === 'confirmed') { this.router.navigate(['/confirmation']); return; }
+        if (fresh && fresh.status !== 'pending_payment') { this.flow.setBooking(null); }
       }
-      default: return true;
+      if (!this.booking()) {
+        if (!(await this.seats.ensureHold(bus.tripId)) || !this.flow.hold()) { this.step.set('expired'); return; }
+        await this.seats.extend();
+        const first = this.passengers()[0];
+        const user = this.auth.currentUser();
+        await this.pay.createBooking(bus.tripId, this.flow.hold()!.token, this.passengers(),
+          { name: `${first.firstName} ${first.lastName}`.trim(), phone: first.phone, email: this.flow.contactEmail() || user?.email || '' }, this.i18n.lang());
+      }
+      // un paiement était déjà en attente (page rafraîchie pendant la validation sur le téléphone) : on reprend l'attente
+      const b = this.booking()!;
+      if (b.payment.lastPaymentId && b.payment.lastPaymentStatus === 'pending') { this.payment.set({ id: b.payment.lastPaymentId } as ApiPayment); this.wait(); return; }
+      this.step.set('form');
+    } catch (e) {
+      const err = e as ApiError;
+      if (['HOLD_EXPIRED', 'SEAT_TAKEN', 'HOLD_NOT_FOUND', 'SEATS_MISMATCH'].includes(err.code)) { this.flow.hold.set(null); this.step.set('expired'); return; }
+      if (err.code === 'GUEST_CHECKOUT_DISABLED' || err.status === 401) this.message.set(this.i18n.t().x.loginRequired);
+      else this.message.set(err.status === 0 ? this.i18n.t().x.offline : (err.message || this.i18n.t().x.payBookingError));
+      this.step.set('error');
     }
   }
 
-  isPhoneValid(): boolean {
-    if (this.mobilePhone.length < 9) return true;
-    return this.isFormValid();
-  }
+  isFormValid(): boolean { return !!this.method() && this.cfg.phoneValid(this.mobilePhone) && this.step() === 'form'; }
+  onMethodChange(code: string): void { if (!this.isProcessing()) this.method.set(code); }
 
-  getPhoneError(): string {
-    if (this.mobileProvider() === 'mvola')       return 'Numéro MVola invalide (034 ou 038 requis)';
-    if (this.mobileProvider() === 'orangemoney') return 'Numéro Orange invalide (032 ou 037 requis)';
-    if (this.mobileProvider() === 'airtelmoney') return 'Numéro Airtel invalide (033 requis)';
-    return '';
-  }
-
-  getPhonePlaceholder(): string {
-    if (this.mobileProvider() === 'mvola')       return '034 12 345 67';
-    if (this.mobileProvider() === 'orangemoney') return '032 12 345 67';
-    if (this.mobileProvider() === 'airtelmoney') return '033 12 345 67';
-    return '0XX XX XXX XX';
-  }
-
-  goBack(): void {
-    // On libère les verrous si l'utilisateur abandonne le paiement
-    this.seatLockSvc.releaseAll();
-    this.router.navigate(['/passengers']);
-  }
-
-  onProviderChange(provider: MobileProvider): void {
-    this.mobileProvider.set(provider);
-    this.mobilePhone = '';
-    this.mvolaStep.set('form');
-    this.omStep.set('form');
-    this.airtelStep.set('form');
-    this.mvolaService.paymentStatus.set('idle');
-    this.omService.reset();
-    this.airtelService.reset();
-  }
-
-  // ── Dispatch paiement ────────────────────────────────────────────────────
   async handlePayment(): Promise<void> {
-    if (!this.isFormValid() || this.isProcessing()) return;
-
-    if (this.paymentMethod() === 'mobilemoney') {
-      if (this.mobileProvider() === 'mvola')       { await this.handleMVolaPayment();   return; }
-      if (this.mobileProvider() === 'orangemoney') { await this.handleOrangePayment();  return; }
-      if (this.mobileProvider() === 'airtelmoney') { await this.handleAirtelPayment();  return; }
-    }
-
-    // Autres méthodes (simulation)
-    this.isProcessing.set(true);
-    await new Promise(r => setTimeout(r, 2000));
-    this.finishBooking('ST' + Date.now().toString().slice(-8));
-  }
-
-  // ── MVola ─────────────────────────────────────────────────────────────────
-  private async handleMVolaPayment(): Promise<void> {
-    this.isProcessing.set(true);
-    this.mvolaStep.set('waiting');
-    const bus  = this.selectedBus();
-    const desc = 'Soatrans ' + (bus?.name ?? '');
-    const result = await this.mvolaService.processMVolaPayment(
-      this.mobilePhone, this.total(), desc
-    );
-    this.isProcessing.set(false);
-    if (result.success) {
-      await new Promise(r => setTimeout(r, 1200));
-      this.finishBooking(result.transactionId ?? ('MVOLA-' + Date.now().toString().slice(-8)));
-    } else {
-      this.mvolaStep.set('form');
+    if (!this.isFormValid()) return;
+    this.step.set('waiting'); this.message.set(null);
+    try {
+      const p = await this.pay.start(this.method(), this.mobilePhone);
+      this.payment.set(p);
+      if (p.clientAction?.type === 'redirect' && p.clientAction.url) { window.location.href = p.clientAction.url; return; }
+      await this.wait();
+    } catch (e) {
+      const err = e as ApiError;
+      if (err.code === 'BOOKING_EXPIRED' || err.code === 'BOOKING_NOT_PAYABLE') { this.step.set('expired'); return; }
+      this.message.set(err.status === 0 ? this.i18n.t().x.offline : (err.message || this.i18n.t().x.payFailed));
+      this.step.set('failed');
     }
   }
-
-  // ── Orange Money ──────────────────────────────────────────────────────────
-  private async handleOrangePayment(): Promise<void> {
-    this.isProcessing.set(true);
-    this.omStep.set('waiting');
-    const bus = this.selectedBus();
-    const ref = 'Soatrans-' + (bus?.id ?? '') + '-' + Date.now();
-    const result = await this.omService.processPayment(this.total(), ref);
-    if (!result.success) {
-      this.isProcessing.set(false);
-      this.omStep.set('form');
-      return;
-    }
-    if (result.payToken) {
-      try {
-        const final = await this.omService.pollPaymentStatus(result.payToken);
-        this.isProcessing.set(false);
-        if (final.success) {
-          await new Promise(r => setTimeout(r, 1200));
-          this.finishBooking(final.transactionId ?? ('OM-' + Date.now().toString().slice(-8)));
-        }
-      } catch {
-        this.isProcessing.set(false);
-        this.omStep.set('form');
-      }
-    }
+  /** Attend le résultat (temps réel + relecture régulière). */
+  async wait(): Promise<void> {
+    const p = this.payment();
+    if (!p) { this.step.set('form'); return; }
+    this.step.set('waiting');
+    const timeoutMs = (this.cfg.booking().paymentTimeoutMinutes + 1) * 60000;
+    const out = await this.pay.waitForResult(p, timeoutMs, () => this.cancelled);
+    if (this.cancelled) return;
+    if (out.result === 'confirmed') { this.flow.hold.set(null); this.router.navigate(['/confirmation']); }
+    else if (out.result === 'refunded') this.step.set('refunded');
+    else if (out.result === 'timeout') this.step.set('timeout');
+    else if (out.reason === 'expired' || out.reason === 'cancelled') this.step.set('expired');
+    else { this.message.set(null); this.step.set('failed'); }
   }
+  retryPayment(): void { this.payment.set(null); this.message.set(null); this.step.set('form'); }
 
-  // ── Airtel Money ──────────────────────────────────────────────────────────
-  private async handleAirtelPayment(): Promise<void> {
-    this.isProcessing.set(true);
-    this.airtelStep.set('waiting');
-    const bus = this.selectedBus();
-    const ref = 'Soatrans ' + (bus?.name ?? '');
-    const result = await this.airtelService.processPayment(
-      this.mobilePhone, this.total(), ref
-    );
-    this.isProcessing.set(false);
-    if (result.success) {
-      await new Promise(r => setTimeout(r, 1200));
-      this.finishBooking(result.transactionId ?? ('AM-' + Date.now().toString().slice(-8)));
-    } else {
-      this.airtelStep.set('form');
-    }
-  }
-
-  // ── Retry ─────────────────────────────────────────────────────────────────
-  retryPayment(): void {
-    if (this.mobileProvider() === 'mvola') {
-      this.mvolaStep.set('form');
-      this.mvolaService.paymentStatus.set('idle');
-      this.mvolaService.paymentError.set(null);
-    }
-    if (this.mobileProvider() === 'orangemoney') {
-      this.omStep.set('form');
-      this.omService.reset();
-    }
-    if (this.mobileProvider() === 'airtelmoney') {
-      this.airtelStep.set('form');
-      this.airtelService.reset();
-    }
-    this.isProcessing.set(false);
-  }
-
-  // ── Finalisation réservation ──────────────────────────────────────────────
-  private finishBooking(ref: string): void {
-    this.bookingService.setBookingReference(ref);
-    this.isProcessing.set(false);
-    this.router.navigate(['/confirmation']);
-  }
+  /** Retour : la réservation en attente est conservée (on peut modifier les passagers puis revenir payer). */
+  goBack(): void { if (this.step() !== 'waiting') this.router.navigate(['/passengers']); }
+  /** Les sièges ne sont plus retenus : retour au choix des sièges. */
+  async restart(): Promise<void> { await this.pay.abandon(); this.flow.setSelectedSeats([]); this.flow.setBooking(null); this.router.navigate(['/seats']); }
+  newSearch(): void { this.flow.reset(); this.router.navigate(['/']); }
 }

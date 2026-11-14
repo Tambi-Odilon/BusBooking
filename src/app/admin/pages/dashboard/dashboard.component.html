@@ -1,0 +1,179 @@
+<div class="a-fade">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+    <div>
+      <div style="font-size:18px;font-weight:700;color:var(--a-tx1);letter-spacing:-.4px">Tableau de bord</div>
+      <div class="a-mono" style="font-size:11px;color:var(--a-tx3);margin-top:3px">
+        {{ today | adminDate:'long' }}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <!-- Badge nouvelle réservation live -->
+      @if (newBookingFlash()) {
+        <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:rgba(6,182,212,.12);border:1px solid var(--a-cyan2);border-radius:20px;animation:a-flash .5s ease">
+          <span class="a-online-dot"></span>
+          <span class="a-mono" style="font-size:10px;color:var(--a-cyan);font-weight:700">Nouvelle réservation !</span>
+        </div>
+      }
+      <button class="a-btn ghost sm" (click)="refresh()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Actualiser
+      </button>
+    </div>
+  </div>
+
+  <!-- Bannière itinéraires suspendus -->
+  @if (suspendedRoutes().length > 0) {
+    <div style="margin-bottom:16px;padding:10px 16px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:16px">⚠️</span>
+      <span style="font-size:12px;font-weight:600;color:#f59e0b">{{ suspendedRoutes().length }} itinéraire(s) suspendu(s) :</span>
+      @for (r of suspendedRoutes(); track r.id) {
+        <span style="font-size:11px;color:var(--a-tx2);background:rgba(245,158,11,.08);padding:2px 8px;border-radius:12px;border:1px solid rgba(245,158,11,.2)">
+          {{ r.from }} → {{ r.to }}
+          @if (r.suspendedUntil) { <span style="color:var(--a-tx3)"> · jusqu'au {{ r.suspendedUntil }}</span> }
+        </span>
+      }
+      <a routerLink="/admin/itineraires" class="a-btn ghost sm" style="margin-left:auto;font-size:10px;text-decoration:none">Gérer →</a>
+    </div>
+  }
+
+  <!-- Stats live (réservations client en temps réel) -->
+  <div style="margin-bottom:12px">
+    <div class="a-mono" style="font-size:10px;color:var(--a-tx3);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+      <span class="a-online-dot"></span> RÉSERVATIONS EN TEMPS RÉEL
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px">
+      <adm-stat label="Réservations du jour" [value]="liveStats().today" [sub]="liveStats().total + ' au total'" color="a-cyan" />
+      <adm-stat label="Encaissé aujourd'hui" [value]="liveStats().todayRevenue | ariary" sub="remboursements déduits" color="a-green" />
+      <adm-stat label="Paiements en attente" [value]="liveStats().pending" sub="réservations non payées" color="a-amber" />
+      <adm-stat label="Départs du jour" [value]="liveStats().tripsToday" [sub]="stats().occupancyRate + ' % de remplissage'" color="a-blue" />
+    </div>
+    @if (liveStats().needsAttention || liveStats().manualRefunds) {
+      <div role="alert" style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:10px 14px;font-size:12px">
+        @if (liveStats().needsAttention) { <span>⚠ {{ liveStats().needsAttention }} réservation(s) à traiter</span> <a routerLink="/admin/bookings" class="a-btn ghost sm">Voir</a> }
+        @if (liveStats().manualRefunds) { <span>💸 {{ liveStats().manualRefunds }} remboursement(s) à effectuer à la main</span> <a routerLink="/admin/refunds" class="a-btn ghost sm">Voir</a> }
+      </div>
+    }
+  </div>
+
+  <!-- Stats mock (historiques) -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:12px;margin-bottom:18px">
+    <adm-stat label="Réservations (mois)" [value]="stats().monthBookings"
+              [sub]="'Total : ' + stats().totalBookings" [growth]="stats().bookingsGrowth" color="a-cyan" />
+    <adm-stat label="Revenu du mois"
+              [value]="stats().monthRevenue | ariary"
+              [sub]="'Total : ' + cfg.money(stats().totalRevenue)"
+              [growth]="stats().revenueGrowth" color="a-green" />
+    <adm-stat label="Clients inscrits" [value]="stats().totalUsers"
+              [sub]="stats().activeUsers + ' actifs ces 15 dernières minutes'" color="a-amber" />
+    <adm-stat label="Taux d'occupation" [value]="stats().occupancyRate + '%'"
+              [sub]="stats().availableSeats + ' / ' + stats().totalSeats + ' sièges libres'" color="a-blue" />
+  </div>
+
+  <!-- Charts -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+    <div class="a-card">
+      <div class="a-card-title">Revenus — 14 derniers jours</div>
+      <adm-bar-chart [data]="revChart()" color="var(--a-cyan)" />
+    </div>
+    <div class="a-card">
+      <div class="a-card-title">Réservations — 14 derniers jours</div>
+      <adm-bar-chart [data]="bkChart()" color="var(--a-amber)" />
+    </div>
+  </div>
+
+  <!-- Top routes + online activity -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+    <div class="a-card">
+      <div class="a-card-title">Top routes par revenu</div>
+      @for (r of routes().slice(0,5); track r.from + r.to) {
+        <div style="margin-bottom:13px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+            <span style="font-size:12px;font-weight:600;color:var(--a-tx1)">{{ r.from }} → {{ r.to }}</span>
+            <div style="text-align:right">
+              <span class="a-mono" style="font-size:11px;color:var(--a-cyan);font-weight:700">{{ r.revenue | ariary }}</span>
+              <span style="font-size:9px;color:var(--a-tx3);margin-left:4px">{{ r.bookings }} rés.</span>
+            </div>
+          </div>
+          <adm-progress [value]="pct(r.revenue)" color="linear-gradient(90deg,var(--a-cyan),var(--a-blue))" />
+        </div>
+      }
+    </div>
+    <div class="a-card">
+      <div class="a-card-title" style="display:flex;align-items:center;gap:8px">
+        Dernières ventes
+        <span class="a-online-dot"></span>
+        <span class="a-mono" style="font-size:10px;color:var(--a-green)">{{ online().length }}</span>
+      </div>
+      @for (act of online().slice(0,8); track $index) {
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">
+          <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#1d4ed8,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;font-family:'IBM Plex Mono',monospace">
+            {{ act.userName[0] }}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:600;color:var(--a-tx1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ act.userName }}</div>
+            <div class="a-mono" style="font-size:9px;color:var(--a-tx3)">{{ act.action }} · {{ act.page }}</div>
+          </div>
+          <span class="a-online-dot"></span>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Réservations live (temps réel) -->
+  <div class="a-card" style="padding:0;overflow:hidden;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px 10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="a-card-title" style="margin:0">Réservations en temps réel</div>
+        <span class="a-online-dot"></span>
+        <span class="a-mono" style="font-size:10px;color:var(--a-cyan)">{{ liveStats().total }} au total</span>
+      </div>
+      <a routerLink="/admin/bookings" class="a-btn ghost sm" style="text-decoration:none;font-size:11px">Voir tout →</a>
+    </div>
+    @if (recentBookings().length === 0) {
+      <div style="padding:30px;text-align:center;color:var(--a-tx3);font-size:12px">
+        Aucune réservation client reçue pour l'instant.
+        <div style="font-size:10px;margin-top:4px;color:var(--a-tx3)">Elles apparaîtront ici dès qu'un client complète un paiement.</div>
+      </div>
+    } @else {
+      <div class="a-table-wrap">
+        <table class="a-table">
+          <thead><tr>
+            <th>Référence</th><th>Passager</th><th>Trajet</th><th>Sièges</th><th>Montant</th><th>Statut</th><th>Heure</th>
+          </tr></thead>
+          <tbody>
+            @for (b of recentBookings(); track b.id) {
+              <tr style="animation:a-fade .4s ease">
+                <td>
+                  <span class="a-mono" style="color:var(--a-cyan2);font-size:11px">{{ b.reference }}</span>
+                  <div style="font-size:9px;color:var(--a-cyan);margin-top:2px">● LIVE</div>
+                </td>
+                <td>
+                  <div style="font-weight:600;color:var(--a-tx1);font-size:12px">{{ b.userName }}</div>
+                  <div style="font-size:10px;color:var(--a-tx3)">{{ b.phone }}</div>
+                </td>
+                <td style="font-size:11px;color:var(--a-tx1)">{{ b.from }} → {{ b.to }}<br>
+                  <span style="color:var(--a-tx3);font-size:10px">{{ b.date | adminDate }}</span>
+                </td>
+                <td>
+                  <div style="display:flex;flex-wrap:wrap;gap:3px;max-width:100px">
+                    @for (s of b.seats; track s) {
+                      <span class="a-mono" style="font-size:10px;background:rgba(6,182,212,.1);padding:1px 5px;border-radius:4px;color:var(--a-cyan)">{{ s }}</span>
+                    }
+                  </div>
+                </td>
+                <td class="a-mono" style="font-weight:700;color:var(--a-amber);font-size:12px">{{ b.totalAmount | ariary }}</td>
+                <td><adm-badge [status]="b.status" /></td>
+                <td class="a-mono" style="font-size:10px;color:var(--a-tx3)">
+                  {{ b.createdAt | adminDate:'datetime' }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+
+</div>

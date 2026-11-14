@@ -46,273 +46,100 @@
   <div class="grid lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2 space-y-4">
 
-      <div class="bg-white rounded-2xl border border-slate-200 p-6">
-        <h3 class="font-bold text-slate-900 mb-4">{{ i18n.t().payment.methodTitle }}</h3>
-        <div class="space-y-3">
-          @for (method of paymentMethods; track method.value) {
-            <label [class]="'flex items-center gap-4 p-4 border rounded-xl cursor-pointer transition-all ' +
-              (paymentMethod() === method.value ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300')">
-              <input type="radio" [value]="method.value" [(ngModel)]="paymentMethodModel"
-                     (ngModelChange)="paymentMethod.set($event)" class="accent-blue-600" />
-              <span class="text-2xl">{{ method.icon }}</span>
-              <span class="font-medium text-slate-800">{{ method.label }}</span>
-            </label>
+      @if (step() === 'preparing') {
+        <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center" aria-busy="true">
+          <span class="animate-spin inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"></span>
+          <p class="text-sm text-slate-600 mt-4">{{ i18n.t().x.loading }}</p>
+        </div>
+      }
+
+      @if (step() === 'error') {
+        <div class="bg-white rounded-2xl border border-red-200 p-8 text-center" role="alert">
+          <div class="text-4xl mb-3">⚠️</div>
+          <p class="text-slate-800 font-medium mb-5">{{ message() }}</p>
+          <div class="flex flex-wrap gap-3 justify-center">
+            <button type="button" (click)="prepare()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold">{{ i18n.t().x.retry }}</button>
+            <button type="button" (click)="goBack()" class="px-5 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-sm font-semibold">{{ i18n.t().payment.backBtn }}</button>
+          </div>
+        </div>
+      }
+
+      @if (step() === 'expired') {
+        <div class="bg-white rounded-2xl border border-amber-200 p-8 text-center" role="alert">
+          <div class="text-4xl mb-3">⌛</div>
+          <p class="text-slate-800 font-medium mb-5">{{ i18n.t().x.payExpired }}</p>
+          <button type="button" (click)="restart()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold">{{ i18n.t().seats.backBtn }}</button>
+        </div>
+      }
+
+      @if (step() === 'refunded') {
+        <div class="bg-white rounded-2xl border border-amber-200 p-8 text-center" role="alert">
+          <div class="text-4xl mb-3">↩️</div>
+          <p class="text-slate-800 font-medium mb-2">{{ i18n.t().x.payRefunded }}</p>
+          <p class="text-sm text-slate-500 mb-5">{{ booking()?.reference }}</p>
+          <button type="button" (click)="newSearch()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold">{{ i18n.t().x.home }}</button>
+        </div>
+      }
+
+      @if (step() === 'form' || step() === 'failed') {
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+          <h3 class="font-bold text-slate-900 mb-4">{{ i18n.t().x.payChoose }}</h3>
+
+          @if (step() === 'failed') {
+            <div class="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm" role="alert">
+              <p class="font-medium">{{ message() || i18n.t().x.payFailed }}</p>
+              <button type="button" (click)="retryPayment()" class="mt-2 px-4 py-1.5 bg-white border border-red-300 rounded-lg text-xs font-semibold">{{ i18n.t().x.payRetry }}</button>
+            </div>
+          }
+
+          @if (!methods().length) {
+            <p class="px-4 py-6 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-sm text-center">{{ i18n.t().x.payNoMethod }}</p>
+          } @else {
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5" role="radiogroup" [attr.aria-label]="i18n.t().x.payChoose">
+              @for (m of methods(); track m.code) {
+                <button type="button" role="radio" [attr.aria-checked]="method() === m.code" (click)="onMethodChange(m.code)" [disabled]="step() !== 'form'"
+                        [class]="'flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ' +
+                                 (method() === m.code ? 'border-blue-600 bg-blue-50' : 'border-slate-200 hover:border-slate-300')">
+                  <span [class]="'w-10 h-10 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ' + styleOf(m.code).color">{{ styleOf(m.code).short }}</span>
+                  <span class="min-w-0">
+                    <span class="block font-semibold text-sm text-slate-900 truncate">{{ m.name }}</span>
+                    @if (m.info.prefixes) { <span class="block text-xs text-slate-500 truncate">{{ m.info.prefixes }}</span> }
+                  </span>
+                </button>
+              }
+            </div>
+
+            <label class="block text-sm font-medium text-slate-700 mb-1.5" for="payPhone">{{ i18n.t().x.payPhone }}</label>
+            <input id="payPhone" type="tel" inputmode="tel" autocomplete="tel" [(ngModel)]="mobilePhone" [disabled]="step() !== 'form'"
+                   [class]="'input-field ' + (mobilePhone && !cfg.phoneValid(mobilePhone) ? 'border-red-300 bg-red-50' : '')" />
+            @if (currentMethod()?.info?.prefixes) {
+              <p class="text-xs text-slate-500 mt-1.5">{{ i18n.t().x.payPrefixes }} {{ currentMethod()!.info.prefixes }}</p>
+            }
+            @if (currentMethod()?.mode === 'test') {
+              <p class="mt-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium">🧪 {{ i18n.t().x.paySimulated }}</p>
+            }
+            <p class="text-xs text-slate-500 mt-3 flex items-center gap-1.5"><span aria-hidden="true">🔒</span> {{ i18n.t().x.secure }}</p>
           }
         </div>
-      </div>
-
-      @if (paymentMethod() === 'card') {
-        <div class="bg-white rounded-2xl border border-slate-200 p-6">
-          <h3 class="font-bold text-slate-900 mb-4">{{ i18n.t().payment.cardTitle }}</h3>
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ i18n.t().payment.cardNumber }}</label>
-              <input type="text" [(ngModel)]="cardNumber" (ngModelChange)="formatCard($event)"
-                     placeholder="1234 5678 9012 3456" maxlength="19" class="input-field" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ i18n.t().payment.cardName }}</label>
-              <input type="text" [(ngModel)]="cardName" placeholder="JEAN DUPONT" class="input-field" />
-            </div>
-            <div class="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ i18n.t().payment.cardExpiry }}</label>
-                <input type="text" [(ngModel)]="expiry" (ngModelChange)="formatExpiry($event)"
-                       placeholder="MM/AA" maxlength="5" class="input-field" />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ i18n.t().payment.cardCvv }}</label>
-                <input type="password" [(ngModel)]="cvv" placeholder="123" maxlength="3" class="input-field" />
-              </div>
-            </div>
-            <div class="flex items-center gap-2 p-3 bg-green-50 rounded-xl text-sm text-green-800">
-              <span>🔒</span><span>{{ i18n.t().payment.cardSecure }}</span>
-            </div>
-          </div>
-        </div>
       }
 
-      @if (paymentMethod() === 'upi') {
-        <div class="bg-white rounded-2xl border border-slate-200 p-6">
-          <h3 class="font-bold text-slate-900 mb-4">{{ i18n.t().payment.upiTitle }}</h3>
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ i18n.t().payment.upiLabel }}</label>
-            <input type="text" [(ngModel)]="upiId" placeholder="votreNom@upi" class="input-field" />
-          </div>
-        </div>
-      }
-
-      @if (paymentMethod() === 'netbanking') {
-        <div class="bg-white rounded-2xl border border-slate-200 p-6">
-          <h3 class="font-bold text-slate-900 mb-2">{{ i18n.t().payment.bankTitle }}</h3>
-          <p class="text-sm text-slate-600">{{ i18n.t().payment.bankDesc }}</p>
-        </div>
-      }
-
-      @if (paymentMethod() === 'mobilemoney') {
-        <div class="bg-white rounded-2xl border border-slate-200 p-6">
-          <h3 class="font-bold text-slate-900 mb-4">{{ i18n.t().payment.mobileTitle }}</h3>
-          <div class="space-y-4">
-
-            <!-- ── Choix opérateur ───────────────────────────────────── -->
-            <div class="space-y-3">
-              @for (provider of mobileProviders; track provider.value) {
-                <label [class]="'flex items-center gap-4 p-3 border-2 rounded-xl cursor-pointer transition-all ' +
-                  (mobileProvider() === provider.value
-                    ? (provider.value === 'airtelmoney' ? 'border-red-400 bg-red-50'
-                     : provider.value === 'orangemoney' ? 'border-amber-400 bg-amber-50'
-                     :                                    'border-orange-400 bg-orange-50')
-                    : 'border-slate-200 bg-white hover:border-slate-300')">
-                  <input type="radio" [value]="provider.value" [(ngModel)]="mobileProviderModel"
-                         (ngModelChange)="onProviderChange($event)" class="sr-only" />
-                  <!-- Logo cercle coloré -->
-                  <div [class]="'w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-xs flex-shrink-0 ' + provider.color">
-                    {{ provider.short }}
-                  </div>
-                  <div class="flex-1">
-                    <p class="font-semibold text-sm text-slate-900">{{ provider.label }}</p>
-                    <p class="text-xs text-slate-500">{{ provider.subtitle }}</p>
-                  </div>
-                  <!-- Checkmark si sélectionné -->
-                  @if (mobileProvider() === provider.value) {
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
-                         class="text-green-500 flex-shrink-0">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                  }
-                  <!-- Badge intégration -->
-                  <span [class]="'text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ' +
-                    (provider.value === 'mvola'       ? 'bg-orange-100 text-orange-700' :
-                     provider.value === 'orangemoney' ? 'bg-amber-100 text-amber-700' :
-                                                        'bg-red-100 text-red-700')">
-                    API
-                  </span>
-                </label>
-              }
+      @if (step() === 'waiting' || step() === 'timeout') {
+        <div class="bg-white rounded-2xl border border-slate-200 p-8 text-center" role="status" aria-live="polite">
+          @if (step() === 'waiting') {
+            <span class="animate-spin inline-block w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full"></span>
+            <h3 class="font-bold text-slate-900 text-lg mt-4">{{ i18n.t().x.payWaiting }}</h3>
+            <p class="text-sm text-slate-600 mt-2 max-w-md mx-auto">{{ payment()?.clientAction?.message || i18n.t().x.payWaitingHint }}</p>
+            <p class="text-2xl font-bold text-blue-600 mt-4">{{ total() | money }}</p>
+            @if (!online()) { <p class="mt-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 inline-block">{{ i18n.t().x.offline }}</p> }
+          } @else {
+            <div class="text-4xl mb-3">⏳</div>
+            <p class="text-slate-800 font-medium max-w-md mx-auto">{{ i18n.t().x.payTimeout }}</p>
+            <p class="text-sm text-slate-500 mt-2">{{ booking()?.reference }}</p>
+            <div class="flex flex-wrap gap-3 justify-center mt-5">
+              <button type="button" (click)="wait()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold">{{ i18n.t().x.payCheck }}</button>
+              <button type="button" (click)="retryPayment()" class="px-5 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-sm font-semibold">{{ i18n.t().x.payRetry }}</button>
             </div>
-
-            <!-- ── Saisie numéro (seulement sur l'étape form) ────────── -->
-            @if (currentStep() === 'form') {
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1.5">
-                  {{ i18n.t().payment.mobilePhone }}
-                </label>
-                <div class="flex gap-2">
-                  <span class="flex items-center px-3 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-700 whitespace-nowrap">+261</span>
-                  <input type="tel" [(ngModel)]="mobilePhone" [placeholder]="getPhonePlaceholder()"
-                         class="flex-1 h-11 px-4 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
-                </div>
-                @if (mobilePhone.length >= 9 && !isPhoneValid()) {
-                  <p class="text-xs text-red-500 mt-1.5 flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    {{ getPhoneError() }}
-                  </p>
-                }
-              </div>
-
-              <!-- ── Encart info marchand + étapes par opérateur ──────── -->
-
-              <!-- MVola info -->
-              @if (mobileProvider() === 'mvola') {
-                <div class="bg-orange-50 border border-orange-200 rounded-xl p-4">
-                  <div class="flex items-center gap-3 mb-3">
-                    <div class="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0">M</div>
-                    <div>
-                      <p class="font-bold text-slate-900 text-sm">MVola — Soatrans</p>
-                      <p class="text-xs text-slate-600">Paiement vers le compte marchand</p>
-                    </div>
-                  </div>
-                  <div class="grid grid-cols-2 gap-3 text-sm">
-                    <div class="bg-white rounded-lg p-3 border border-orange-100">
-                      <p class="text-xs text-slate-500 mb-0.5">Numéro marchand</p>
-                      <p class="font-bold text-slate-900 font-mono tracking-wider">+261 {{ merchantNumber }}</p>
-                    </div>
-                    <div class="bg-white rounded-lg p-3 border border-orange-100">
-                      <p class="text-xs text-slate-500 mb-0.5">Montant</p>
-                      <p class="font-bold text-orange-600 text-lg">{{ total() | number }} Ar</p>
-                    </div>
-                  </div>
-                  <ol class="mt-3 space-y-1.5 text-xs text-slate-600">
-                    <li class="flex items-start gap-2"><span class="w-4 h-4 bg-orange-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">1</span>Entrez votre numéro MVola (034/038)</li>
-                    <li class="flex items-start gap-2"><span class="w-4 h-4 bg-orange-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">2</span>Cliquez <strong>Payer</strong> — notification push envoyée sur votre téléphone</li>
-                    <li class="flex items-start gap-2"><span class="w-4 h-4 bg-orange-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">3</span>Confirmez avec votre code secret MVola</li>
-                  </ol>
-                </div>
-              }
-
-              <!-- Orange Money info -->
-              @if (mobileProvider() === 'orangemoney') {
-                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                  <div class="flex items-center gap-3 mb-3">
-                    <div class="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center text-white font-bold text-xs flex-shrink-0">OM</div>
-                    <div>
-                      <p class="font-bold text-slate-900 text-sm">Orange Money — Soatrans</p>
-                      <p class="text-xs text-slate-600">Paiement sécurisé via OTP USSD</p>
-                    </div>
-                  </div>
-                  <div class="bg-white rounded-lg p-3 border border-amber-100 mb-3">
-                    <p class="text-xs text-slate-500 mb-0.5">Montant à payer</p>
-                    <p class="font-bold text-amber-600 text-lg">{{ total() | number }} Ar</p>
-                  </div>
-                  <ol class="space-y-1.5 text-xs text-slate-600">
-                    <li class="flex items-start gap-2"><span class="w-4 h-4 bg-orange-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">1</span>Entrez votre numéro Orange Money (032/037)</li>
-                    <li class="flex items-start gap-2"><span class="w-4 h-4 bg-orange-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">2</span>Cliquez <strong>Payer</strong> — un lien de paiement Orange est créé</li>
-                    <li class="flex items-start gap-2"><span class="w-4 h-4 bg-orange-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">3</span>Composez le code USSD Orange Money sur votre téléphone pour obtenir votre OTP</li>
-                    <li class="flex items-start gap-2"><span class="w-4 h-4 bg-orange-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">4</span>Entrez votre OTP sur la page Orange pour confirmer</li>
-                  </ol>
-                </div>
-              }
-
-              <!-- Airtel Money info -->
-              @if (mobileProvider() === 'airtelmoney') {
-                <div class="bg-red-50 border border-red-200 rounded-xl p-4">
-                  <div class="flex items-center gap-3 mb-3">
-                    <div class="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center text-white font-bold text-xs flex-shrink-0">AM</div>
-                    <div>
-                      <p class="font-bold text-slate-900 text-sm">Airtel Money — Soatrans</p>
-                      <p class="text-xs text-slate-600">Paiement USSD Push sécurisé</p>
-                    </div>
-                  </div>
-                  <div class="bg-white rounded-lg p-3 border border-red-100 mb-3">
-                    <p class="text-xs text-slate-500 mb-0.5">Montant à payer</p>
-                    <p class="font-bold text-red-600 text-lg">{{ total() | number }} Ar</p>
-                  </div>
-                  <ol class="space-y-1.5 text-xs text-slate-600">
-                    <li class="flex items-start gap-2"><span class="w-4 h-4 bg-red-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">1</span>Entrez votre numéro Airtel (033)</li>
-                    <li class="flex items-start gap-2"><span class="w-4 h-4 bg-red-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">2</span>Cliquez <strong>Payer</strong> — une notification USSD Push est envoyée sur votre téléphone</li>
-                    <li class="flex items-start gap-2"><span class="w-4 h-4 bg-red-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">3</span>Entrez votre PIN Airtel Money pour confirmer le paiement</li>
-                  </ol>
-                </div>
-              }
-            }
-
-            <!-- ── Écran d'attente / statut (waiting + polling) ────────── -->
-            @if (currentStep() === 'waiting') {
-              <div [class]="'border-2 rounded-xl p-5 ' + currentStatusColor()">
-                <div class="flex items-center gap-3 mb-2">
-                  @if (currentIsPolling()) {
-                    <span class="animate-spin inline-block w-6 h-6 border-2 border-current border-t-transparent rounded-full flex-shrink-0"></span>
-                  }
-                  @if (!currentIsPolling() && mobileProvider() === 'mvola' && mvolaStatus() === 'success') { <span class="text-2xl">✅</span> }
-                  @if (!currentIsPolling() && mobileProvider() === 'orangemoney' && omStatus() === 'success')   { <span class="text-2xl">✅</span> }
-                  @if (!currentIsPolling() && mobileProvider() === 'airtelmoney' && airtelStatus() === 'success') { <span class="text-2xl">✅</span> }
-                  @if (!currentIsPolling() && (mvolaStatus() === 'failed' || omStatus() === 'failed' || airtelStatus() === 'failed')) { <span class="text-2xl">❌</span> }
-                  <p class="font-semibold text-sm">{{ currentStatusLabel() }}</p>
-                </div>
-
-                @if (mobileProvider() === 'mvola' && mvolaStatus() === 'polling') {
-                  <div class="space-y-1 mt-1">
-                    <p class="text-xs">📱 Notification envoyée au <strong>{{ mobilePhone }}</strong></p>
-                    <p class="text-xs">Validez avec votre code MVola dans les 60 secondes</p>
-                    <div class="mt-2 h-1.5 bg-white/50 rounded-full overflow-hidden">
-                      <div class="h-full bg-orange-500 rounded-full animate-pulse" style="width: 60%"></div>
-                    </div>
-                  </div>
-                }
-
-                @if (mobileProvider() === 'orangemoney' && omStatus() === 'waiting_otp') {
-                  <div class="space-y-1 mt-1">
-                    <p class="text-xs">📲 Composez le <strong>code USSD Orange Money</strong> sur votre téléphone pour obtenir votre OTP</p>
-                    <p class="text-xs text-amber-700">Puis entrez l'OTP sur la page Orange Money</p>
-                    @if (omPaymentUrl()) {
-                      <a [href]="omPaymentUrl()!" target="_blank"
-                         class="inline-block mt-2 px-4 py-2 bg-orange-600 text-white rounded-lg text-xs font-semibold hover:bg-orange-700 transition-colors">
-                        🔗 Ouvrir la page Orange Money
-                      </a>
-                    }
-                    <div class="mt-2 h-1.5 bg-white/50 rounded-full overflow-hidden">
-                      <div class="h-full bg-amber-500 rounded-full animate-pulse" style="width: 50%"></div>
-                    </div>
-                  </div>
-                }
-
-                @if (mobileProvider() === 'airtelmoney' && airtelStatus() === 'polling') {
-                  <div class="space-y-1 mt-1">
-                    <p class="text-xs">📱 Notification USSD envoyée au <strong>{{ mobilePhone }}</strong></p>
-                    <p class="text-xs">Entrez votre PIN Airtel Money pour confirmer dans les 60 secondes</p>
-                    @if (airtelTxId()) {
-                      <p class="text-xs opacity-60 mt-1">Ref: {{ airtelTxId() }}</p>
-                    }
-                    <div class="mt-2 h-1.5 bg-white/50 rounded-full overflow-hidden">
-                      <div class="h-full bg-red-500 rounded-full animate-pulse" style="width: 60%"></div>
-                    </div>
-                  </div>
-                }
-
-                @if (currentError()) {
-                  <div class="mt-3">
-                    <p class="text-xs mb-2 opacity-80">{{ currentError() }}</p>
-                    <button (click)="retryPayment()"
-                            class="px-4 py-2 bg-white border border-current rounded-lg text-xs font-semibold hover:bg-white/50 transition-colors">
-                      🔄 Réessayer
-                    </button>
-                  </div>
-                }
-              </div>
-            }
-
-          </div>
+          }
         </div>
       }
 
@@ -333,25 +160,31 @@
           <div>
             <p class="text-slate-400 text-xs">{{ i18n.t().payment.summaryPassengers }}</p>
             @for (p of passengers(); track p.seatNumber) {
-              <p class="font-semibold">{{ p.firstName }} {{ p.lastName }} — {{ i18n.t().seats.selectedSeats }} {{ p.seatNumber }}</p>
+              <p class="font-semibold">{{ p.firstName }} {{ p.lastName }} — {{ i18n.t().passengers.seat }} {{ p.seatNumber }}</p>
             }
           </div>
         </div>
         <div class="border-t border-slate-100 pt-4 space-y-2 mb-4">
           <div class="flex justify-between text-sm">
-            <span class="text-slate-600">{{ selectedSeats().length }} × {{ selectedBus()?.price | number }} Ar</span>
-            <span class="font-medium">{{ ticketTotal() | number }} Ar</span>
+            <span class="text-slate-600">{{ selectedSeats().length }} × {{ selectedBus()?.price | money }}</span>
+            <span class="font-medium">{{ ticketTotal() | money }}</span>
           </div>
           <div class="flex justify-between text-sm">
             <span class="text-slate-600">{{ i18n.t().payment.serviceFee }}</span>
-            <span class="font-medium">2 000 Ar</span>
+            <span class="font-medium">{{ fee() | money }}</span>
           </div>
+          @if (tax() > 0) {
+            <div class="flex justify-between text-sm">
+              <span class="text-slate-600">{{ i18n.t().x.tax }}</span>
+              <span class="font-medium">{{ tax() | money }}</span>
+            </div>
+          }
           <div class="border-t border-slate-100 pt-2 flex justify-between">
             <span class="font-bold">{{ i18n.t().payment.totalLabel }}</span>
-            <span class="text-xl font-bold text-blue-600">{{ total() | number }} Ar</span>
+            <span class="text-xl font-bold text-blue-600">{{ total() | money }}</span>
           </div>
         </div>
-        <button (click)="handlePayment()" [disabled]="!isFormValid() || isProcessing()"
+        <button type="button" (click)="handlePayment()" [disabled]="!isFormValid() || isProcessing()"
                 class="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:cursor-not-allowed
                        text-white disabled:text-slate-400 font-semibold rounded-xl transition-all text-sm">
           @if (isProcessing()) {
@@ -360,7 +193,7 @@
               {{ i18n.t().payment.processing }}
             </span>
           } @else {
-            {{ i18n.t().payment.payBtn((total() | number) ?? '') }}
+            {{ i18n.t().payment.payBtn(cfg.money(total())) }}
           }
         </button>
       </div>

@@ -1,0 +1,206 @@
+<div class="a-fade">
+
+  <!-- En-tête -->
+  <div style="margin-bottom:20px">
+    <div style="font-size:18px;font-weight:700;color:var(--a-tx1);letter-spacing:-.4px">Paramètres</div>
+    <div class="a-mono" style="font-size:11px;color:var(--a-tx3);margin-top:3px">Configuration système et gestion des accès</div>
+  </div>
+
+  <!-- Tabs -->
+  <div style="display:flex;gap:4px;border-bottom:1px solid var(--a-border);margin-bottom:20px">
+    @for (t of tabs; track t) {
+      <button class="a-btn ghost sm" style="border-radius:8px 8px 0 0;padding:8px 16px;border-bottom:2px solid;transition:all .15s"
+              [style.border-bottom-color]="tab()===t?'var(--a-cyan)':'transparent'"
+              [style.color]="tab()===t?'var(--a-cyan)':'var(--a-tx3)'"
+              (click)="tab.set(t)">
+        {{ tabLabel[t] }}
+      </button>
+    }
+  </div>
+
+  <!-- ── TAB: Thème + Comptes ─────────────────────────────────────────────── -->
+  @if (tab() === 'admins') {
+
+    <!-- Thème -->
+    <div class="a-card" style="margin-bottom:16px;padding:18px 20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:16px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--a-tx1);margin-bottom:4px">Apparence</div>
+          <div style="font-size:11px;color:var(--a-tx3)">Thème de l'interface d'administration</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:12px;color:var(--a-tx2)">☀ Clair</span>
+          <button (click)="theme.toggle()"
+                  style="width:52px;height:28px;border-radius:14px;border:none;cursor:pointer;position:relative;transition:background .2s;outline:none;flex-shrink:0"
+                  [style.background]="theme.theme() === 'dark' ? 'var(--a-cyan)' : 'var(--a-border2)'">
+            <span style="position:absolute;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.2)"
+                  [style.left]="theme.theme() === 'dark' ? '27px' : '3px'"></span>
+          </button>
+          <span style="font-size:12px;color:var(--a-tx2)">🌙 Sombre</span>
+        </div>
+      </div>
+
+      <!-- Aperçu thèmes -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        @for (t of [{id:'light',label:'Mode Clair',bg:'#f0f4f8',card:'#fff',tx:'#0f172a',ac:'#0891b2'},
+                    {id:'dark', label:'Mode Sombre',bg:'#04091a',card:'#0d1529',tx:'#e2e8f0',ac:'#06b6d4'}]; track t.id) {
+          <div style="border-radius:10px;overflow:hidden;cursor:pointer;transition:all .15s;border:2px solid"
+               [style.border-color]="theme.theme() === t.id ? t.ac : 'transparent'"
+               [style.box-shadow]="theme.theme() === t.id ? '0 0 0 2px ' + t.ac + '33' : 'none'"
+               (click)="theme.set($any(t.id))">
+            <div style="padding:10px;display:flex;gap:6px" [style.background]="t.bg">
+              <div style="width:28px;border-radius:5px;padding:5px 4px;display:flex;flex-direction:column;gap:3px" [style.background]="t.card">
+                @for (n of [1,2,3,4]; track n) {
+                  <div style="height:4px;border-radius:2px" [style.background]="n===1?t.ac:'rgba(128,128,128,.2)'"></div>
+                }
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:5px">
+                <div style="height:14px;border-radius:4px;display:flex;gap:4px;align-items:center;padding:0 6px" [style.background]="t.card">
+                  <div style="width:8px;height:8px;border-radius:50%" [style.background]="t.ac"></div>
+                  <div style="flex:1;height:3px;border-radius:2px;background:rgba(128,128,128,.2)"></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px">
+                  @for (n of [1,2,3]; track n) {
+                    <div style="height:22px;border-radius:4px" [style.background]="t.card"></div>
+                  }
+                </div>
+              </div>
+            </div>
+            <div style="padding:6px 10px;font-size:10px;font-weight:700;text-align:center"
+                 [style.background]="t.card" [style.color]="t.tx">{{ t.label }}</div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Comptes admin -->
+    <div class="a-card" style="padding:0;overflow:hidden">
+      <div style="padding:14px 20px;border-bottom:1px solid var(--a-border);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:13px;font-weight:700;color:var(--a-tx1)">Comptes administrateurs</span>
+        <a routerLink="/admin/users" [queryParams]="{tab:'admins'}" style="font-size:11px;color:var(--a-cyan);text-decoration:none">Gérer →</a>
+      </div>
+      <div class="a-table-wrap">
+        <table class="a-table">
+          <thead>
+            <tr>
+              <th>Nom</th><th>Email</th><th>Rôle</th><th>Dernière connexion</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (a of auth.admins(); track a.id) {
+              <tr>
+                <td style="font-weight:600;color:var(--a-tx1)">{{ a.firstName }} {{ a.lastName }}</td>
+                <td class="a-mono" style="font-size:11px">{{ a.email }}</td>
+                <td>
+                  <span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px"
+                        [style.background]="getRoleBg(a.role)" [style.color]="getRoleColor(a.role)">
+                    {{ getRoleLabel(a.role) }}
+                  </span>
+                </td>
+                <td style="font-size:11px;color:var(--a-tx3)">{{ a.lastLogin | adminDate }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  <!-- ── TAB: Rôles & Permissions ─────────────────────────────────────────── -->
+  @if (tab() === 'roles') {
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:12px;color:var(--a-tx3)">
+        {{ roles().length }} rôles configurés · Modifiez les permissions depuis la page dédiée
+      </div>
+      <a routerLink="/admin/roles" class="a-btn primary sm" style="text-decoration:none">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Gérer les rôles
+      </a>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      @for (role of roles(); track role.id) {
+        <div class="a-card" style="padding:14px 18px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+            <div style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0"
+                 [style.background]="role.color+'22'" [style.color]="role.color">{{ role.name[0] }}</div>
+            <div style="flex:1">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ role.name }}</span>
+                @if (!role.isBuiltin) {
+                  <span class="a-mono" style="font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(6,182,212,.1);color:var(--a-cyan)">CUSTOM</span>
+                }
+              </div>
+              <div style="font-size:10px;color:var(--a-tx3)">{{ role.description }}</div>
+            </div>
+            <div class="a-mono" style="font-size:12px;font-weight:700;flex-shrink:0" [style.color]="role.color">
+              {{ countPerms(role.id) }}/{{ permKeys.length }}
+            </div>
+          </div>
+
+          <!-- Barre de progression -->
+          <div style="height:4px;background:var(--a-border);border-radius:2px;margin-bottom:10px">
+            <div style="height:4px;border-radius:2px;transition:width .3s"
+                 [style.background]="role.color"
+                 [style.width]="(countPerms(role.id)/permKeys.length*100)+'%'"></div>
+          </div>
+
+          <!-- Permissions actives en chips -->
+          <div style="display:flex;flex-wrap:wrap;gap:4px">
+            @for (k of permKeys; track k) {
+              @if (getPermissions(role.id)[k]) {
+                <span class="a-mono" style="font-size:8px;padding:2px 7px;border-radius:3px"
+                      [style.background]="role.color+'18'" [style.color]="role.color">
+                  {{ k.replace('canView','👁 ').replace('canManage','✏ ') }}
+                </span>
+              }
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ── TAB: Système ──────────────────────────────────────────────────────── -->
+  @if (tab() === 'system') {
+    <div style="display:flex;flex-direction:column;gap:12px">
+
+      <div class="a-card" style="padding:18px 20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div style="font-size:13px;font-weight:700;color:var(--a-tx1)">État du système</div>
+          <button class="a-btn ghost sm" (click)="refreshHealth()">Actualiser</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+          @for (info of systemInfo(); track info.label) {
+            <div style="background:var(--a-bg3);border-radius:8px;padding:10px 14px">
+              <div style="font-size:9px;color:var(--a-tx3);margin-bottom:3px" class="a-mono">{{ info.label }}</div>
+              <div style="font-size:12px;font-weight:600;color:var(--a-tx1)">{{ info.value }}</div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="a-card" style="padding:18px 20px">
+        <div style="font-size:13px;font-weight:700;color:var(--a-tx1);margin-bottom:12px">Actions de maintenance</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--a-bg3);border-radius:8px">
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--a-tx1)">Recharger la configuration</div>
+              <div style="font-size:10px;color:var(--a-tx3)">Relit le nom, les couleurs et les réglages de la société depuis le serveur</div>
+            </div>
+            <button class="a-btn ghost sm" (click)="reloadConfig()">Recharger</button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--a-bg3);border-radius:8px">
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--a-tx1)">Exporter les données</div>
+              <div style="font-size:10px;color:var(--a-tx3)">Télécharge les comptes et rôles au format JSON</div>
+            </div>
+            <button class="a-btn ghost sm" (click)="exportData()">Exporter</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  }
+
+</div>

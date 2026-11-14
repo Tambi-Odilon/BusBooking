@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "module": "commonjs", "target": "ES2022", "lib": ["ES2023"], "moduleResolution": "node",
+    "outDir": "dist", "rootDir": ".", "strict": true, "strictPropertyInitialization": false,
+    "experimentalDecorators": true, "emitDecoratorMetadata": true, "esModuleInterop": true,
+    "skipLibCheck": true, "sourceMap": true, "resolveJsonModule": true, "noImplicitAny": false,
+    "types": ["node", "jest"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "load/**/*.ts"]
+}

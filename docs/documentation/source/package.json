@@ -1,0 +1,1 @@
+{ "name": "documentation-generateur", "private": true, "type": "module", "description": "Génère les trois documentations (HTML + Word) pour une société cliente", "scripts": { "generer": "node generer.mjs" }, "dependencies": { "docx": "^9.5.1" } }

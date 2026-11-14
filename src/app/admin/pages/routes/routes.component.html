@@ -1,0 +1,596 @@
+<div class="a-fade">
+
+  <!-- ── En-tête ─────────────────────────────────────────────────────────── -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+    <div>
+      <div style="font-size:18px;font-weight:700;color:var(--a-tx1);letter-spacing:-.4px">Gestion des itinéraires</div>
+      <div class="a-mono" style="font-size:11px;color:var(--a-tx3);margin-top:3px">
+        {{ svc.stats().total }} itinéraires · {{ svc.stats().active }} actifs · {{ svc.stats().suspended }} suspendus
+      </div>
+    </div>
+    @if (auth.can('canManageRoutes')) {
+      <button class="a-btn primary sm" (click)="openAdd()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nouvel itinéraire
+      </button>
+    }
+  </div>
+
+  <!-- ── KPI ─────────────────────────────────────────────────────────────── -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;margin-bottom:18px">
+    <adm-stat label="Actifs"    [value]="svc.stats().active"    color="a-green" [small]="true" />
+    <adm-stat label="Suspendus" [value]="svc.stats().suspended" color="a-amber" [small]="true" />
+    <adm-stat label="Archivés"  [value]="svc.stats().deleted"   color="a-red"   [small]="true" />
+    <adm-stat label="Voyages total"  [value]="svc.stats().totalTrips"  color="a-blue"  [small]="true" />
+    <adm-stat label="Revenus total"
+              [value]="(svc.stats().totalRevenue / 1000000).toFixed(1) + 'M Ar'"
+              color="a-cyan" [small]="true" />
+  </div>
+
+  <!-- ── Barre de recherche + filtres ─────────────────────────────────────── -->
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;align-items:center">
+    <div style="flex:1;min-width:200px;position:relative">
+      <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--a-tx3)"
+           xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="a-input" style="padding-left:32px" placeholder="Rechercher une ville, un itinéraire…"
+             [ngModel]="search()" (ngModelChange)="search.set($event)" />
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      @for (s of [['all','Tous'],['active','Actifs'],['suspended','Suspendus'],['deleted','Archivés']]; track s[0]) {
+        <button [class]="'a-btn sm ' + (filterStatus() === s[0] ? 'primary' : 'ghost')"
+                (click)="filterStatus.set($any(s[0])); selected.set(null)">
+          {{ s[1] }}
+          @if (s[0] === 'active')    { <span class="a-mono" style="font-size:9px;opacity:.7">({{ svc.stats().active }})</span> }
+          @if (s[0] === 'suspended') { <span class="a-mono" style="font-size:9px;opacity:.7">({{ svc.stats().suspended }})</span> }
+          @if (s[0] === 'deleted')   { <span class="a-mono" style="font-size:9px;opacity:.7">({{ svc.stats().deleted }})</span> }
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- ── Layout : liste + détail côte à côte ──────────────────────────────── -->
+  <div [style.display]="'grid'" [style.grid-template-columns]="selected() ? '1fr 380px' : '1fr'"
+       style="gap:14px;align-items:start">
+
+    <!-- ── Liste des itinéraires ──────────────────────────────────────────── -->
+    <div>
+      @if (filtered().length === 0) {
+        <div class="a-card" style="text-align:center;padding:48px 24px">
+          <div style="font-size:32px;margin-bottom:12px">🗺️</div>
+          <div style="font-size:14px;font-weight:600;color:var(--a-tx1);margin-bottom:6px">Aucun itinéraire trouvé</div>
+          <div style="font-size:12px;color:var(--a-tx3);margin-bottom:14px">Modifiez le filtre ou créez un nouvel itinéraire</div>
+          @if (auth.can('canManageRoutes')) {
+            <button class="a-btn primary sm" (click)="openAdd()">+ Nouvel itinéraire</button>
+          }
+        </div>
+      } @else {
+        <div style="display:flex;flex-direction:column;gap:10px">
+          @for (r of filtered(); track r.id) {
+            <div class="a-card" style="padding:0;overflow:hidden;cursor:pointer;transition:border-color .15s"
+                 [style.border-color]="selected()?.id === r.id ? 'var(--a-cyan)' : (r.status === 'deleted' ? 'rgba(239,68,68,.2)' : r.status === 'suspended' ? 'rgba(245,158,11,.2)' : 'var(--a-border)')"
+                 [style.opacity]="r.status === 'deleted' ? '.6' : '1'"
+                 (click)="select(r)">
+
+              <!-- Bande couleur statut -->
+              <div style="height:3px"
+                   [style.background]="r.status === 'active' ? 'var(--a-green)' : r.status === 'suspended' ? 'var(--a-amber)' : 'var(--a-red)'">
+              </div>
+
+              <div style="padding:14px 16px">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">
+
+                  <!-- Itinéraire -->
+                  <div style="flex:1;min-width:200px">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ r.from }}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="10" viewBox="0 0 24 12" fill="none" stroke="var(--a-tx3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="0" y1="6" x2="20" y2="6"/><polyline points="14,1 20,6 14,11"/></svg>
+                        <span style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ r.to }}</span>
+                      </div>
+                      <!-- Badge statut -->
+                      <span class="a-mono"
+                            style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:5px;letter-spacing:.3px"
+                            [style.background]="r.status === 'active' ? 'rgba(16,185,129,.12)' : r.status === 'suspended' ? 'rgba(245,158,11,.12)' : 'rgba(239,68,68,.12)'"
+                            [style.color]="r.status === 'active' ? 'var(--a-green)' : r.status === 'suspended' ? 'var(--a-amber)' : 'var(--a-red)'">
+                        {{ statusLabel(r.status) }}
+                      </span>
+                    </div>
+
+                    <!-- Méta infos -->
+                    <div style="display:flex;gap:16px;flex-wrap:wrap">
+                      <span style="font-size:11px;color:var(--a-tx3)">
+                        <span class="a-mono" style="color:var(--a-tx2)">{{ r.distanceKm }}</span> km
+                      </span>
+                      <span style="font-size:11px;color:var(--a-tx3)">
+                        <span class="a-mono" style="color:var(--a-tx2)">{{ svc.formatDuration(r.durationMin) }}</span>
+                      </span>
+                      <span style="font-size:11px;color:var(--a-tx3)">
+                        à partir de <span class="a-mono" style="color:var(--a-cyan)">{{ r.basePrice | ariary }}</span>
+                      </span>
+                      <span style="font-size:11px;color:var(--a-tx3)">
+                        <span class="a-mono" style="color:var(--a-tx2)">{{ r.assignedBusIds.length }}</span> véhicule(s)
+                      </span>
+                    </div>
+
+                    <!-- Raison de suspension -->
+                    @if (r.status === 'suspended') {
+                      <div style="margin-top:8px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.18);border-radius:6px;padding:7px 10px;display:flex;align-items:flex-start;gap:7px">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--a-amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:1px;flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <div>
+                          <div style="font-size:11px;color:var(--a-amber);font-weight:600">
+                            Suspendu @if(r.suspendedUntil) { jusqu'au {{ r.suspendedUntil }} ({{ svc.daysUntilReactivation(r) }}j) }
+                            @else { indéfiniment }
+                          </div>
+                          @if (r.suspendReason) {
+                            <div style="font-size:10px;color:var(--a-tx3);margin-top:2px">{{ r.suspendReason }}</div>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Stats + actions -->
+                  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0">
+                    <div style="text-align:right">
+                      <div class="a-mono" style="font-size:13px;font-weight:700;color:var(--a-tx1)">
+                        {{ (r.totalRevenue / 1000000).toFixed(1) }}M Ar
+                      </div>
+                      <div style="font-size:10px;color:var(--a-tx3)">{{ r.totalTrips | number }} voyages</div>
+                    </div>
+
+                    @if (auth.can('canManageRoutes')) {
+                      <div style="display:flex;gap:5px" (click)="$event.stopPropagation()">
+                        @if (r.status === 'active') {
+                          <button class="a-btn ghost sm" title="Modifier" (click)="openEdit(r, $event)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                          </button>
+                          <button class="a-btn ghost sm" title="Suspendre" (click)="openSuspend(r, $event)"
+                                  style="color:var(--a-amber)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg>
+                          </button>
+                        }
+                        @if (r.status === 'suspended') {
+                          <button class="a-btn ghost sm" title="Réactiver" (click)="reactivate(r, $event)"
+                                  style="color:var(--a-green)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                          </button>
+                          <button class="a-btn ghost sm" title="Modifier" (click)="openEdit(r, $event)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                          </button>
+                        }
+                        @if (r.status === 'deleted') {
+                          <button class="a-btn ghost sm" title="Restaurer" (click)="restore(r, $event)"
+                                  style="color:var(--a-green)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                          </button>
+                        }
+                        <button class="a-btn ghost sm" title="{{ r.status === 'deleted' ? 'Supprimer définitivement' : 'Archiver' }}"
+                                (click)="openDelete(r, $event)" style="color:var(--a-red)">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                        </button>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- ── Panneau de détail ───────────────────────────────────────────────── -->
+    @if (selected(); as r) {
+      <div class="a-card a-fade" style="position:sticky;top:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div style="font-size:13px;font-weight:700;color:var(--a-tx1)">
+            {{ r.from }} → {{ r.to }}
+          </div>
+          <button class="a-btn ghost sm" (click)="selected.set(null)" style="padding:4px 6px">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <!-- Statut + badge -->
+        <div style="margin-bottom:14px">
+          <span class="a-mono"
+                style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;letter-spacing:.3px"
+                [style.background]="r.status === 'active' ? 'rgba(16,185,129,.12)' : r.status === 'suspended' ? 'rgba(245,158,11,.12)' : 'rgba(239,68,68,.12)'"
+                [style.color]="r.status === 'active' ? 'var(--a-green)' : r.status === 'suspended' ? 'var(--a-amber)' : 'var(--a-red)'">
+            {{ statusLabel(r.status) }}
+          </span>
+        </div>
+
+        <!-- Infos caractéristiques -->
+        <div class="a-card-title">Caractéristiques</div>
+        @for (f of [
+          ['Distance', r.distanceKm + ' km'],
+          ['Durée', svc.formatDuration(r.durationMin)],
+          ['ID', r.id]
+        ]; track f[0]) {
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--a-border)">
+            <span style="font-size:11px;color:var(--a-tx3)">{{ f[0] }}</span>
+            <span class="a-mono" style="font-size:11px;color:var(--a-tx1)">{{ f[1] }}</span>
+          </div>
+        }
+
+        <!-- Prix par type de véhicule -->
+        <div style="margin-top:4px;margin-bottom:4px">
+          <div style="font-size:10px;color:var(--a-tx3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Tarifs</div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:var(--a-bg3);border-radius:6px">
+              <span style="font-size:11px;color:var(--a-tx2)">🚌 Grand bus (48 pl.)</span>
+              <span class="a-mono" style="font-size:12px;color:var(--a-cyan);font-weight:700">{{ priceForLayout(r, 'bus') | ariary }}</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:var(--a-bg3);border-radius:6px">
+              <span style="font-size:11px;color:var(--a-tx2)">🚐 Minibus 16 pl.</span>
+              <span class="a-mono" style="font-size:12px;color:var(--a-cyan);font-weight:700">{{ priceForLayout(r, 'minibus16') | ariary }}</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:var(--a-bg3);border-radius:6px">
+              <span style="font-size:11px;color:var(--a-tx2)">⭐ VIP 10 pl.</span>
+              <span class="a-mono" style="font-size:12px;color:var(--a-amber);font-weight:700">{{ priceForLayout(r, 'minibus10') | ariary }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Statistiques -->
+        <div class="a-card-title" style="margin-top:14px">Statistiques</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+          <div style="background:var(--a-bg3);border-radius:8px;padding:10px;text-align:center">
+            <div class="a-mono" style="font-size:17px;font-weight:700;color:var(--a-cyan)">{{ r.totalTrips | number }}</div>
+            <div style="font-size:9px;color:var(--a-tx3);margin-top:2px">Voyages</div>
+          </div>
+          <div style="background:var(--a-bg3);border-radius:8px;padding:10px;text-align:center">
+            <div class="a-mono" style="font-size:17px;font-weight:700;color:var(--a-green)">{{ (r.totalRevenue / 1000000).toFixed(1) }}M</div>
+            <div style="font-size:9px;color:var(--a-tx3);margin-top:2px">Ar revenus</div>
+          </div>
+        </div>
+
+        <!-- Véhicules assignés -->
+        <div class="a-card-title">Véhicules assignés ({{ r.assignedBusIds.length }})</div>
+        @if (r.assignedBusIds.length === 0) {
+          <div style="font-size:11px;color:var(--a-tx3);font-style:italic;margin-bottom:12px">Aucun véhicule assigné</div>
+        } @else {
+          <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:12px">
+            @for (bid of r.assignedBusIds; track bid) {
+              <div style="display:flex;align-items:center;gap:7px;padding:5px 8px;background:var(--a-bg3);border-radius:6px">
+                <span>{{ busIcon(getBusLayout(bid)) }}</span>
+                <span style="font-size:11px;color:var(--a-tx1)">{{ busName(bid) }}</span>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- Notes -->
+        @if (r.notes) {
+          <div class="a-card-title">Notes</div>
+          <div style="font-size:11px;color:var(--a-tx2);font-style:italic;margin-bottom:12px">{{ r.notes }}</div>
+        }
+
+        <!-- Suspension info -->
+        @if (r.status === 'suspended') {
+          <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.18);border-radius:8px;padding:12px;margin-bottom:14px">
+            <div style="font-size:11px;font-weight:600;color:var(--a-amber);margin-bottom:4px">
+              Suspendu @if(r.suspendedUntil) { jusqu'au {{ r.suspendedUntil }} } @else { indéfiniment }
+            </div>
+            @if (r.suspendReason) {
+              <div style="font-size:10px;color:var(--a-tx3)">{{ r.suspendReason }}</div>
+            }
+          </div>
+        }
+
+        <!-- Timestamps -->
+        <div style="border-top:1px solid var(--a-border);padding-top:10px;margin-top:4px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:10px;color:var(--a-tx3)">Créé le</span>
+            <span class="a-mono" style="font-size:10px;color:var(--a-tx3)">{{ r.createdAt | date:'dd/MM/yyyy' }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="font-size:10px;color:var(--a-tx3)">Modifié le</span>
+            <span class="a-mono" style="font-size:10px;color:var(--a-tx3)">{{ r.updatedAt | date:'dd/MM/yyyy' }}</span>
+          </div>
+        </div>
+
+        <!-- Actions rapides -->
+        @if (auth.can('canManageRoutes')) {
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:14px;border-top:1px solid var(--a-border);padding-top:14px">
+            @if (r.status === 'active') {
+              <button class="a-btn ghost sm" style="width:100%;justify-content:center" (click)="openEdit(r, $event)">Modifier</button>
+              <button class="a-btn ghost sm" style="width:100%;justify-content:center;color:var(--a-amber)" (click)="openSuspend(r, $event)">
+                Suspendre temporairement
+              </button>
+            }
+            @if (r.status === 'suspended') {
+              <button class="a-btn primary sm" style="width:100%;justify-content:center" (click)="reactivate(r, $event)">
+                Réactiver
+              </button>
+              <button class="a-btn ghost sm" style="width:100%;justify-content:center" (click)="openEdit(r, $event)">Modifier</button>
+            }
+            @if (r.status === 'deleted') {
+              <button class="a-btn primary sm" style="width:100%;justify-content:center" (click)="restore(r, $event)">
+                Restaurer
+              </button>
+            }
+            <button class="a-btn ghost sm"
+                    style="width:100%;justify-content:center;color:var(--a-red)"
+                    (click)="openDelete(r, $event)">
+              {{ r.status === 'deleted' ? 'Supprimer définitivement' : 'Archiver' }}
+            </button>
+          </div>
+        }
+      </div>
+    }
+
+  </div><!-- end grid -->
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- MODALES                                                                  -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+
+@if (modal() !== null) {
+  <div class="a-overlay" (click)="closeModal()">
+    <div class="a-modal a-fade" (click)="$event.stopPropagation()">
+
+      <!-- ── Modal Ajouter / Modifier ─────────────────────────────────────── -->
+      @if (modal() === 'add' || modal() === 'edit') {
+        <div class="a-modal-header">
+          <div class="a-modal-title">
+            {{ modal() === 'add' ? 'Nouvel itinéraire' : 'Modifier l\'itinéraire' }}
+          </div>
+          <button class="a-btn ghost sm" (click)="closeModal()" style="padding:4px 8px">✕</button>
+        </div>
+        <div class="a-modal-body">
+
+          <!-- Villes -->
+          <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:flex-end;gap:8px;margin-bottom:14px">
+            <div>
+              <label class="a-form-label">Ville de départ *</label>
+              <input class="a-input" style="width:100%" list="route-cities" [(ngModel)]="form.from" placeholder="Ex. Antananarivo" autocomplete="off" />
+            </div>
+            <div style="padding-bottom:5px;color:var(--a-tx3)">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="10" viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="0" y1="6" x2="20" y2="6"/><polyline points="14,1 20,6 14,11"/></svg>
+            </div>
+            <div>
+              <label class="a-form-label">Ville d'arrivée *</label>
+              <input class="a-input" style="width:100%" list="route-cities" [(ngModel)]="form.to" placeholder="Ex. Toamasina" autocomplete="off" />
+            </div>
+          </div>
+
+          <datalist id="route-cities">@for (c of cities(); track c) { <option [value]="c"></option> }</datalist>
+          <div style="font-size:10px;color:var(--a-tx3);margin:-8px 0 14px">Choisissez une ville existante ou saisissez-en une nouvelle.</div>
+
+          <!-- Distance / Durée -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div>
+              <label class="a-form-label">Distance (km)</label>
+              <input class="a-input" type="number" min="1" placeholder="370" [(ngModel)]="form.distanceKm" />
+            </div>
+            <div>
+              <label class="a-form-label">Durée (minutes)</label>
+              <input class="a-input" type="number" min="1" placeholder="390" [(ngModel)]="form.durationMin" />
+            </div>
+          </div>
+
+          <!-- Prix par type de véhicule -->
+          <div style="margin-bottom:14px">
+            <label class="a-form-label" style="margin-bottom:8px;display:block">
+              Prix par type de véhicule (Ar) *
+              <span style="font-weight:400;color:var(--a-tx3);font-size:10px;margin-left:6px">Le prix affiché au client sera celui du véhicule assigné</span>
+            </label>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+              <div>
+                <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
+                  <span style="font-size:14px">🚌</span>
+                  <span style="font-size:11px;font-weight:600;color:var(--a-tx2)">Grand bus</span>
+                </div>
+                <div style="position:relative">
+                  <input class="a-input" type="number" min="0" step="1000" placeholder="35 000"
+                         [(ngModel)]="form.priceBus"
+                         style="padding-right:28px" />
+                  <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:9px;color:var(--a-tx3);pointer-events:none">Ar</span>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
+                  <span style="font-size:14px">🚐</span>
+                  <span style="font-size:11px;font-weight:600;color:var(--a-tx2)">Minibus 16</span>
+                </div>
+                <div style="position:relative">
+                  <input class="a-input" type="number" min="0" step="1000" placeholder="40 000"
+                         [(ngModel)]="form.priceMinibus16"
+                         style="padding-right:28px" />
+                  <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:9px;color:var(--a-tx3);pointer-events:none">Ar</span>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
+                  <span style="font-size:14px">⭐</span>
+                  <span style="font-size:11px;font-weight:600;color:var(--a-tx2)">VIP 10</span>
+                </div>
+                <div style="position:relative">
+                  <input class="a-input" type="number" min="0" step="1000" placeholder="75 000"
+                         [(ngModel)]="form.priceMinibus10"
+                         style="padding-right:28px" />
+                  <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:9px;color:var(--a-tx3);pointer-events:none">Ar</span>
+                </div>
+              </div>
+            </div>
+            <!-- Aperçu prix minimum affiché -->
+            @if (form.priceBus > 0 || form.priceMinibus16 > 0 || form.priceMinibus10 > 0) {
+              <div style="margin-top:8px;padding:7px 10px;background:rgba(6,182,212,.06);border:1px solid var(--a-cyan2);border-radius:7px;font-size:11px;color:var(--a-tx2)">
+                💡 Prix affiché au client : à partir de
+                <span class="a-mono" style="color:var(--a-cyan);font-weight:700">
+{{ formMinPrice() | ariary }}
+                </span>
+              </div>
+            }
+          </div>
+
+          <!-- Durée par type de véhicule -->
+          <div style="margin-bottom:14px">
+            <label class="a-form-label" style="margin-bottom:8px;display:block">
+              Durée par type de véhicule (minutes) *
+              <span style="font-weight:400;color:var(--a-tx3);font-size:10px;margin-left:6px">Les minibus sont souvent plus rapides sur les routes secondaires</span>
+            </label>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+              <div>
+                <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
+                  <span style="font-size:14px">🚌</span>
+                  <span style="font-size:11px;font-weight:600;color:var(--a-tx2)">Grand bus</span>
+                </div>
+                <div style="position:relative">
+                  <input class="a-input" type="number" min="0" step="10" placeholder="390"
+                         [(ngModel)]="form.durationBus"
+                         style="padding-right:28px" />
+                  <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:9px;color:var(--a-tx3);pointer-events:none">min</span>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
+                  <span style="font-size:14px">🚐</span>
+                  <span style="font-size:11px;font-weight:600;color:var(--a-tx2)">Minibus 16</span>
+                </div>
+                <div style="position:relative">
+                  <input class="a-input" type="number" min="0" step="10" placeholder="360"
+                         [(ngModel)]="form.durationMinibus16"
+                         style="padding-right:28px" />
+                  <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:9px;color:var(--a-tx3);pointer-events:none">min</span>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
+                  <span style="font-size:14px">⭐</span>
+                  <span style="font-size:11px;font-weight:600;color:var(--a-tx2)">VIP 10</span>
+                </div>
+                <div style="position:relative">
+                  <input class="a-input" type="number" min="0" step="10" placeholder="330"
+                         [(ngModel)]="form.durationMinibus10"
+                         style="padding-right:28px" />
+                  <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:9px;color:var(--a-tx3);pointer-events:none">min</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Véhicules assignés -->
+          <div style="margin-bottom:14px">
+            <label class="a-form-label">Véhicules assignés</label>
+            <div style="display:flex;flex-wrap:wrap;gap:7px">
+              @for (b of buses; track b.id) {
+                <button type="button"
+                        [class]="'a-btn sm ' + (busAssigned(b.id) ? 'primary' : 'ghost')"
+                        [style.opacity]="b.status !== 'active' ? '.5' : '1'"
+                        (click)="toggleBus(b.id)">
+                  {{ busIcon(b.vehicleLayout) }} {{ b.name }}
+                  @if (b.status === 'maintenance') { <span style="font-size:8px">⚙</span> }
+                  @if (b.status === 'retired')     { <span style="font-size:8px">✕</span> }
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div>
+            <label class="a-form-label">Notes internes</label>
+            <textarea class="a-input" rows="2" placeholder="Remarques, conditions particulières…"
+                      style="resize:vertical;min-height:60px" [(ngModel)]="form.notes"></textarea>
+          </div>
+        </div>
+        <div class="a-modal-footer">
+          <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+          <button class="a-btn primary sm" (click)="submitForm()">
+            {{ modal() === 'add' ? 'Créer l\'itinéraire' : 'Enregistrer' }}
+          </button>
+        </div>
+      }
+
+      <!-- ── Modal Suspendre ──────────────────────────────────────────────── -->
+      @if (modal() === 'suspend') {
+        <div class="a-modal-header">
+          <div class="a-modal-title">Suspendre l'itinéraire</div>
+          <button class="a-btn ghost sm" (click)="closeModal()" style="padding:4px 8px">✕</button>
+        </div>
+        <div class="a-modal-body">
+          @if (modalRoute(); as r) {
+            <div style="background:var(--a-bg3);border-radius:8px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--a-amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M12 3l7 9-7 9-7-9 7-9z"/></svg>
+              <span style="font-size:13px;font-weight:700;color:var(--a-tx1)">{{ r.from }} → {{ r.to }}</span>
+            </div>
+          }
+
+          <div style="margin-bottom:14px">
+            <label class="a-form-label">Raison de la suspension *</label>
+            <textarea class="a-input" rows="3" style="resize:vertical"
+                      placeholder="Ex : Travaux routiers, conditions météo, manque de véhicules…"
+                      [(ngModel)]="suspendForm.reason"></textarea>
+          </div>
+
+          <div style="margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+              <input type="checkbox" id="indef" [(ngModel)]="suspendForm.indefinite"
+                     style="accent-color:var(--a-cyan)" />
+              <label for="indef" style="font-size:12px;color:var(--a-tx2);cursor:pointer">
+                Suspension indéfinie (sans date de reprise)
+              </label>
+            </div>
+            @if (!suspendForm.indefinite) {
+              <label class="a-form-label">Reprendre à partir du</label>
+              <input class="a-input" type="date" [min]="minDate" [(ngModel)]="suspendForm.until" />
+            }
+          </div>
+
+          <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.18);border-radius:8px;padding:10px 12px">
+            <div style="font-size:11px;color:var(--a-amber)">
+              ⚠ Les réservations existantes ne seront pas automatiquement annulées. Gérez-les manuellement dans la section Réservations.
+            </div>
+          </div>
+        </div>
+        <div class="a-modal-footer">
+          <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+          <button class="a-btn sm" style="background:rgba(245,158,11,.15);color:var(--a-amber);border:1px solid rgba(245,158,11,.3)"
+                  (click)="submitSuspend()">
+            Confirmer la suspension
+          </button>
+        </div>
+      }
+
+      <!-- ── Modal Supprimer / Archiver ───────────────────────────────────── -->
+      @if (modal() === 'delete') {
+        <div class="a-modal-header">
+          <div class="a-modal-title" style="color:var(--a-red)">
+            {{ modalRoute()?.status === 'deleted' ? 'Supprimer définitivement' : 'Archiver l\'itinéraire' }}
+          </div>
+          <button class="a-btn ghost sm" (click)="closeModal()" style="padding:4px 8px">✕</button>
+        </div>
+        <div class="a-modal-body">
+          @if (modalRoute(); as r) {
+            <div style="background:var(--a-bg3);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13px;font-weight:700;color:var(--a-tx1)">
+              {{ r.from }} → {{ r.to }}
+            </div>
+            @if (r.status !== 'deleted') {
+              <p style="font-size:12px;color:var(--a-tx2);line-height:1.6;margin-bottom:12px">
+                L'itinéraire sera <strong style="color:var(--a-tx1)">archivé</strong> (non visible aux clients) mais conservé dans les données.
+                Vous pourrez le restaurer à tout moment.
+              </p>
+            } @else {
+              <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:12px;margin-bottom:12px">
+                <p style="font-size:12px;color:var(--a-red);line-height:1.6;margin:0">
+                  ⚠ Cette action est <strong>irréversible</strong>. L'itinéraire et toutes ses données seront définitivement supprimés.
+                </p>
+              </div>
+            }
+          }
+        </div>
+        <div class="a-modal-footer">
+          <button class="a-btn ghost sm" (click)="closeModal()">Annuler</button>
+          <button class="a-btn sm" style="background:rgba(239,68,68,.15);color:var(--a-red);border:1px solid rgba(239,68,68,.3)"
+                  (click)="confirmDelete()">
+            {{ modalRoute()?.status === 'deleted' ? 'Supprimer définitivement' : 'Archiver' }}
+          </button>
+        </div>
+      }
+
+    </div>
+  </div>
+}

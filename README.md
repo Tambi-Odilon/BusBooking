@@ -1,105 +1,67 @@
-# Soatrans — Bus Booking App (Angular 20)
+# Réservation de billets de bus — produit en marque blanche
 
-A full-featured bus booking application for Madagascar, built with **Angular 20** using modern standalone components, signals, and lazy-loaded routes.
+Application complète de vente de billets de bus pour une compagnie de transport : site de réservation pour les voyageurs, back-office pour le personnel, API sécurisée avec temps réel. Chaque société l'installe sur son propre serveur et la personnalise (nom, logo, couleurs, devise, langues, moyens de paiement) depuis un assistant de première configuration.
 
-## ✨ Features
+| Dossier | Contenu |
+|---|---|
+| `src/` | Frontend Angular 20 (site client + back-office `/admin` + assistant `/setup`) |
+| `backend/` | API NestJS (Fastify), migrations PostgreSQL, tests |
+| `deploy/` | Docker Compose, Caddy (HTTPS), scripts d'installation, de sauvegarde et de restauration |
+| `docs/` | Analyse, architecture, résultats de tests, documentations (technique, employés, voyageurs) |
+| `.github/workflows/ci.yml` | Pipeline CI (tests + build) |
+| `PROGRESSION.md` | Suivi du projet |
 
-- 🔍 **Search** — Find buses by route, date, and passenger count
-- 🚌 **Bus Listing** — Filter by price or travel time, see amenities & ratings
-- 💺 **Seat Selection** — Interactive seat map with real-time availability
-- 👤 **Passenger Details** — Multi-passenger form with validation
-- 💳 **Payment** — Card, UPI, Net Banking, and Mobile Money (MVola, Orange Money, Airtel Money)
-- ✅ **Confirmation** — E-ticket with booking reference
+## Installation sur un serveur (production)
 
-## 🛠 Tech Stack
-
-| Technology | Version | Usage |
-|-----------|---------|-------|
-| **Angular** | 20 | Framework |
-| **TypeScript** | 5.8 | Language |
-| **Angular Signals** | Built-in | Reactive state management |
-| **Angular Router** | Built-in | Lazy-loaded standalone routes |
-| **Tailwind CSS** | 3.4 | Utility-first styling |
-| **DM Sans** | Google Fonts | Body typography |
-| **Fraunces** | Google Fonts | Display typography |
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js 18+
-- npm 9+
-
-### Installation
+Prérequis : un serveur Linux (2 vCPU, 4 Go de RAM, 40 Go de disque), Docker avec le plugin Compose, un nom de domaine qui pointe vers le serveur, ports 80 et 443 ouverts.
 
 ```bash
-# Clone the repository
-git clone <your-repo-url>
-cd soatrans-angular
-
-# Install dependencies
-npm install
-
-# Start development server
-npm start
+cd deploy
+./scripts/install.sh reservation.masociete.mg
 ```
 
-Visit `http://localhost:4200`
+Le script crée `deploy/.env` avec des secrets générés, construit les images, démarre les services et affiche le **code d'installation**. Ouvrez ensuite `https://reservation.masociete.mg` : l'assistant de première configuration démarre tout seul.
 
-### Build for Production
+| Opération | Commande (depuis `deploy/`) |
+|---|---|
+| Mettre à jour | `./scripts/update.sh` |
+| Sauvegarder maintenant | `./scripts/backup.sh` |
+| Restaurer | `./scripts/restore.sh backups/daily/backup-AAAAMMJJ-HHMMSS.tar` |
+| Voir les journaux | `docker compose --env-file .env logs -f api` |
+| Arrêter / démarrer | `docker compose --env-file .env down` / `up -d` |
+
+Essai sur son poste : `./scripts/install.sh localhost` puis `https://localhost` (certificat auto-signé à accepter).
+
+## Développement local
+
+Prérequis : Node.js 22, PostgreSQL 16, Redis 7.
 
 ```bash
-npm run build
+# 1. API (http://localhost:3000, documentation sur /api/docs)
+createdb bb_dev
+cd backend && npm ci && npm run build && npm start
+
+# 2. Frontend (http://localhost:4200, relaie /api vers le port 3000)
+npm ci && npm start
 ```
 
-Output will be in `dist/soatrans-angular/`.
+Sans variable d'environnement, l'API utilise `postgres://postgres@127.0.0.1:5432/bb_dev` et `redis://127.0.0.1:6379`. Les migrations s'appliquent au démarrage.
 
-## 📁 Project Structure
+## Tests
 
-```
-src/
-├── app/
-│   ├── components/
-│   │   ├── layout/          # App shell with header/footer
-│   │   ├── search/          # Search form + popular routes
-│   │   ├── bus-list/        # Bus results with filtering
-│   │   ├── seat-selection/  # Interactive seat map
-│   │   ├── passenger-details/ # Passenger info forms
-│   │   ├── payment/         # Payment method selection
-│   │   └── confirmation/    # Booking confirmation & e-ticket
-│   ├── models/
-│   │   └── booking.models.ts  # TypeScript interfaces & mock data
-│   ├── services/
-│   │   └── booking.service.ts # Signal-based state management
-│   ├── app.component.ts     # Root component
-│   ├── app.config.ts        # Application configuration
-│   └── app.routes.ts        # Lazy-loaded routes
-├── styles/
-│   └── styles.scss          # Global styles with Tailwind
-└── index.html
+```bash
+cd backend
+npm test                 # 252 tests : unitaires, intégration, concurrence (PostgreSQL et Redis requis)
+npm run test:load        # test de charge HTTP : 500 clients sur un siège, 1 000 clients pour 48 places
 ```
 
-## 🏗 Angular 20 Features Used
+Derniers résultats : `docs/tests/resultats-tests.txt` et `docs/tests/charge-resultats.json`.
 
-- **Standalone Components** — No NgModules, all components are self-contained
-- **Signals** — `signal()`, `computed()`, and `effect()` for reactive state
-- **Control Flow** — `@if`, `@for`, `@switch` template syntax
-- **Lazy Loading** — All routes load components asynchronously
-- **`inject()` function** — Functional dependency injection
-- **`withComponentInputBinding()`** — Route param binding to component inputs
+## Paiements
 
-## 🎨 Design
+MVola, Orange Money et Airtel Money fonctionnent en **mode test simulé** tant que les clés marchandes ne sont pas saisies (Société et réglages → Paiements). En mode test, un numéro payeur terminé par `0000` simule un refus. La liste de ce que chaque société doit fournir est dans `docs/03-A-FOURNIR-PAR-LE-CLIENT.md`.
 
-The app uses a clean, professional aesthetic with:
-- **Fraunces** serif for headings (editorial feel)
-- **DM Sans** for body text (modern, readable)
-- Blue primary palette with thoughtful use of slate neutrals
-- Card-based layouts with subtle shadows
-- Smooth hover and focus transitions
+## Documentation
 
-## 📱 Responsive
-
-Fully responsive across mobile, tablet, and desktop using Tailwind's responsive breakpoints.
-
----
-
-Converted from the original React/Vite implementation to Angular 20 with standalone architecture.
+- `docs/02-ARCHITECTURE.md` — choix techniques, schéma de la base, API, temps réel, sécurité
+- `docs/documentation/` — trois guides (technique, employés, voyageurs), chacun en HTML et en Word

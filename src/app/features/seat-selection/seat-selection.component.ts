@@ -1,37 +1,21 @@
-import {
-  Component, inject, OnInit, OnDestroy, signal, computed, effect,
-} from '@angular/core';
-import { DecimalPipe } from '@angular/common';
+import { Component, HostListener, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { BookingService } from '../../core/services/booking.service';
 import { I18nService } from '../../core/services/i18n.service';
 import { SeatLockService } from '../../core/services/seat-lock.service';
-import { VehicleLayout } from '../../core/models/booking.models';
+import { AppConfigService } from '../../core/config/app-config.service';
+import { ApiError } from '../../core/api/api.service';
+import { MoneyPipe } from '../../core/pipes/format.pipes';
 
 export type SeatStatus = 'available' | 'booked' | 'selected' | 'pending';
-
-export interface Seat {
-  number: string;
-  status: SeatStatus;
-}
-
-const BOOKED: Record<string, string[]> = {
-  bus:       ['A3', 'A4', 'B2', 'D1', 'E3', 'F4', 'H2', 'J1', 'K3'],
-  minibus16: ['F1', 'F2', 'B2', 'C1', 'D3'],
-  minibus10: ['B1', 'C2', 'D1'],
-};
-
-export interface SeatRow {
-  rowId: string;
-  seats: Seat[];
-  aisleAfter?: number;
-  isDriverRow?: boolean;
-}
+export interface Seat { number: string; status: SeatStatus }
+export interface SeatRow { rowId: string; seats: Seat[]; aisleAfter?: number; isDriverRow?: boolean }
 
 @Component({
   selector: 'app-seat-selection',
   standalone: true,
-  imports: [DecimalPipe],
+  imports: [CommonModule, MoneyPipe],
   templateUrl: './seat-selection.component.html',
   styleUrl:    './seat-selection.component.scss',
 })
@@ -40,118 +24,111 @@ export class SeatSelectionComponent implements OnInit, OnDestroy {
   private router         = inject(Router);
   private seatLockSvc    = inject(SeatLockService);
   readonly i18n          = inject(I18nService);
+  readonly cfg           = inject(AppConfigService);
 
   readonly selectedBus   = this.bookingService.selectedBus;
   readonly searchParams  = this.bookingService.searchParams;
   readonly selectedSeats = this.bookingService.selectedSeats;
+  readonly loading       = this.seatLockSvc.loading;
+  readonly loadError     = this.seatLockSvc.error;
+  readonly tripNotice    = this.seatLockSvc.tripNotice;
+  /** Message affiché quand un siège vient d'être pris par quelqu'un d'autre, ou que la sélection a expiré. */
+  readonly notice        = signal<string | null>(null);
+  /** Siège en cours d'envoi au serveur (évite les doubles clics). */
+  readonly busySeat      = signal<string | null>(null);
 
-  readonly seatRows = signal<SeatRow[]>([]);
-
-  readonly busKey = computed(() => {
-    const bus = this.selectedBus();
-    const p   = this.searchParams();
-    if (!bus || !p) return '';
-    return this.seatLockSvc.buildKey(bus.id, p.from, p.to, p.date);
+  /** Plan des sièges fourni par le serveur (les 3 plans d'origine et les plans personnalisés). */
+  readonly seatRows = computed<SeatRow[]>(() => {
+    const m = this.seatLockSvc.map();
+    if (!m) return [];
+    const booked = new Set(this.seatLockSvc.booked()), pending = new Set(this.seatLockSvc.heldByOthers());
+    return m.rows.map(r => ({ rowId: r.rowId, isDriverRow: r.isDriverRow, aisleAfter: r.aisleAfter,
+      seats: r.seats.map(n => ({ number: n, status: (booked.has(n) ? 'booked' : pending.has(n) ? 'pending' : 'available') as SeatStatus })) }));
   });
-
-  readonly layout = computed<VehicleLayout>(
-    () => this.selectedBus()?.vehicleLayout ?? 'bus'
-  );
-
-  readonly ticketTotal = computed(() => {
-    const bus = this.selectedBus();
-    return bus ? bus.price * this.selectedSeats().length : 0;
+  /** Gabarit d'affichage : les plans personnalisés utilisent la grille générique du grand bus. */
+  readonly layout = computed<string>(() => {
+    const code = this.seatLockSvc.map()?.layoutCode ?? this.selectedBus()?.vehicleLayout ?? 'bus';
+    return ['bus', 'minibus16', 'minibus10'].includes(code) ? code : 'bus';
   });
-  readonly total = computed(
-    () => this.ticketTotal() + (this.selectedSeats().length > 0 ? 2000 : 0)
-  );
+  private readonly est   = computed(() => this.cfg.estimate(this.selectedBus()?.price ?? 0, this.selectedSeats().length));
+  readonly ticketTotal   = computed(() => this.est().subtotal);
+  readonly fee           = computed(() => this.est().fee);
+  readonly total         = computed(() => this.est().total);
+  readonly layoutLabel   = computed(() => ({ bus: '🚌', minibus16: '🚐', minibus10: '⭐' } as Record<string, string>)[this.layout()] ?? '🚌');
 
-  readonly layoutLabel = computed(() => {
-    const map: Record<VehicleLayout, string> = {
-      bus: '🚌', minibus16: '🚐', minibus10: '⭐',
-    };
-    return map[this.layout()];
-  });
-
-  // ── Compte à rebours ─────────────────────────────────────────────────────
-  readonly remainingSec  = signal<number | null>(null);
-  private countdownTimer: ReturnType<typeof setInterval> | null = null;
-
+  // ── Compte à rebours (l'échéance vient du serveur) ────────────────────────
+  readonly remainingSec   = this.seatLockSvc.remainingSeconds;
   readonly remainingLabel = computed(() => {
     const s = this.remainingSec();
     if (s === null || s <= 0) return null;
-    const min = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${min}:${sec.toString().padStart(2, '0')}`;
+    return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
   });
+  readonly isExpiringSoon = computed(() => { const s = this.remainingSec(); return s !== null && s <= 120 && s > 0; });
+  readonly lockExpired    = signal(false);
+  readonly pendingSeats   = this.seatLockSvc.heldByOthers;
 
-  readonly isExpiringSoon = computed(() => {
-    const s = this.remainingSec();
-    return s !== null && s <= 120 && s > 0;
-  });
-
-  readonly lockExpired = computed(() => {
-    const s = this.remainingSec();
-    return s !== null && s === 0;
-  });
-
-  // ── Sièges réservés par d'autres ─────────────────────────────────────────
-  readonly pendingSeats = computed(() => this.seatLockSvc.lockedByOthers(this.busKey()));
-
-  ngOnInit(): void {
-    if (!this.selectedBus() || !this.searchParams()) {
-      this.router.navigate(['/']); return;
-    }
-
-    this.buildLayout();
-    this._startCountdown();
-
-    const seats = this.selectedSeats();
-    if (seats.length > 0 && this.busKey()) {
-      this.seatLockSvc.lockSeats(this.busKey(), seats);
-    }
-
-    // Rebuild quand les sièges en cours changent (autres onglets)
+  constructor() {
+    // Le verrou vient d'expirer : la sélection est vidée et l'état réel est relu.
     effect(() => {
-      const _p = this.pendingSeats();
-      this.buildLayout();
+      if (this.remainingSec() === 0 && this.selectedSeats().length && !this.bookingService.booking()) {
+        this.bookingService.hold.set(null);
+        this.bookingService.setSelectedSeats([]);
+        this.lockExpired.set(true);
+        const id = this.selectedBus()?.tripId;
+        if (id) this.seatLockSvc.load(id);
+      }
+    });
+    // Un siège que j'avais choisi apparaît vendu ou retenu par un autre (changement de véhicule, expiration) : on le retire.
+    effect(() => {
+      const lost = this.selectedSeats().filter(s => this.seatLockSvc.booked().includes(s) || this.pendingSeats().includes(s));
+      if (lost.length && !this.bookingService.booking()) {
+        this.bookingService.setSelectedSeats(this.selectedSeats().filter(s => !lost.includes(s)));
+        this.notice.set(this.i18n.t().x.seatTaken);
+      }
     });
   }
-
-  ngOnDestroy(): void {
-    if (this.countdownTimer) clearInterval(this.countdownTimer);
-    const key = this.busKey();
-    if (key) this.seatLockSvc.releaseSeats(key);
+  async ngOnInit(): Promise<void> {
+    const bus = this.selectedBus();
+    if (!bus?.tripId || !this.searchParams()) { this.router.navigate(['/']); return; }
+    // Retour depuis l'écran de paiement : la réservation en attente garde ses sièges, on revient à l'étape passagers.
+    await this.seatLockSvc.watch(bus.tripId);
+    if (!(await this.seatLockSvc.ensureHold(bus.tripId))) this.notice.set(this.i18n.t().x.holdLost);
   }
+  ngOnDestroy(): void { this.seatLockSvc.unwatch(); }
+  /** Fermeture de l'onglet sans réservation : les sièges sont rendus tout de suite. */
+  @HostListener('window:pagehide') onPageHide(): void { this.seatLockSvc.releaseOnClose(); }
 
-  // ── Interaction ──────────────────────────────────────────────────────────
-  toggleSeat(number: string): void {
-    const allSeats = this.seatRows().flatMap(r => r.seats);
-    const seat = allSeats.find(s => s.number === number);
-    if (!seat || seat.status === 'booked' || seat.status === 'pending') return;
+  reload(): void { const id = this.selectedBus()?.tripId; if (id) this.seatLockSvc.load(id); }
 
-    const current  = [...this.selectedSeats()];
+  // ── Interaction ───────────────────────────────────────────────────────────
+  /** Les appuis rapides sont traités l'un après l'autre : aucun n'est perdu, même sur un réseau lent. */
+  private queue: Promise<void> = Promise.resolve();
+  toggleSeat(number: string): Promise<void> {
+    this.queue = this.queue.then(() => this.applyToggle(number));
+    return this.queue;
+  }
+  private async applyToggle(number: string): Promise<void> {
+    const seat = this.seatRows().flatMap(r => r.seats).find(s => s.number === number);
+    const tripId = this.selectedBus()?.tripId;
+    if (!seat || !tripId || (seat.status !== 'available' && !this.selectedSeats().includes(number))) return;
+    const current  = this.selectedSeats();
     const maxSeats = this.searchParams()?.passengers ?? 1;
-    const key      = this.busKey();
-
-    if (current.includes(number)) {
-      const next = current.filter(s => s !== number);
+    const next = current.includes(number) ? current.filter(s => s !== number) : current.length < maxSeats ? [...current, number] : null;
+    if (!next) return;
+    this.busySeat.set(number); this.notice.set(null); this.lockExpired.set(false);
+    // une réservation en attente existait pour une autre sélection : elle sera remplacée à la prochaine validation
+    if (this.bookingService.booking()) this.bookingService.setBooking(null);
+    try {
+      await this.seatLockSvc.select(tripId, next);
       this.bookingService.setSelectedSeats(next);
-      if (key) this.seatLockSvc.lockSeats(key, next);
-      if (next.length === 0 && key) {
-        this.seatLockSvc.releaseSeats(key);
-        this.remainingSec.set(null);
-      }
-    } else if (current.length < maxSeats) {
-      const next = [...current, number];
-      this.bookingService.setSelectedSeats(next);
-      if (key) this.seatLockSvc.lockSeats(key, next);
-      if (current.length === 0) this._startCountdown();
-    }
-    this.buildLayout();
+    } catch (e) {
+      const err = e as ApiError;
+      this.notice.set(err.code === 'SEAT_TAKEN' ? this.i18n.t().x.seatTaken
+        : err.code === 'SALES_CLOSED' || err.code === 'TRIP_NOT_SELLABLE' ? this.i18n.t().x.salesClosed
+        : err.status === 0 ? this.i18n.t().x.offline : (err.message || this.i18n.t().x.seatsError));
+    } finally { this.busySeat.set(null); }
   }
 
-  // ── Classes CSS ──────────────────────────────────────────────────────────
   getSeatClass(seat: Seat): string {
     const base = 'w-10 h-10 rounded-lg flex items-center justify-center border-2 transition-all duration-150 text-xs font-medium';
     return `${base} ${this._seatColor(seat, false)}`;
@@ -176,82 +153,14 @@ export class SeatSelectionComponent implements OnInit, OnDestroy {
       : 'bg-white border-slate-300 text-slate-500 hover:border-blue-400 hover:bg-blue-50 cursor-pointer';
   }
 
-  goBack(): void { this.router.navigate(['/buses']); }
-
+  /** Libellé lu par les lecteurs d'écran : « Siège A3 — disponible ». */
+  seatLabel(seat: Seat): string {
+    const t = this.i18n.t().seats;
+    const state = this.selectedSeats().includes(seat.number) ? t.legendSelected : seat.status === 'booked' ? t.legendBooked : seat.status === 'pending' ? t.legendPending : t.legendAvailable;
+    return `${seat.number} — ${state}`;
+  }
+  goBack(): void { this.seatLockSvc.release(); this.bookingService.setSelectedSeats([]); this.router.navigate(['/buses']); }
   continueToPassengers(): void {
-    if (this.selectedSeats().length === this.searchParams()?.passengers) {
-      // Verrou maintenu pendant le tunnel de réservation — libéré à la confirmation
-      this.router.navigate(['/passengers']);
-    }
-  }
-
-  // ── Compte à rebours ─────────────────────────────────────────────────────
-  private _startCountdown(): void {
-    if (this.countdownTimer) clearInterval(this.countdownTimer);
-    this.countdownTimer = setInterval(() => {
-      const s = this.seatLockSvc.remainingSeconds(this.busKey());
-      this.remainingSec.set(s);
-      if (s !== null && s <= 0) {
-        this.bookingService.setSelectedSeats([]);
-        this.buildLayout();
-        clearInterval(this.countdownTimer!);
-        this.countdownTimer = null;
-      }
-    }, 1000);
-  }
-
-  // ── Builders ─────────────────────────────────────────────────────────────
-  private buildLayout(): void {
-    if (!this.selectedBus()) return;
-    const layout = this.selectedBus()!.vehicleLayout;
-    switch (layout) {
-      case 'bus':       this.seatRows.set(this.buildBusLayout());       break;
-      case 'minibus16': this.seatRows.set(this.buildMinibus16Layout()); break;
-      case 'minibus10': this.seatRows.set(this.buildMinibus10Layout()); break;
-    }
-  }
-
-  private mkSeat(num: string, bookedList: string[]): Seat {
-    const pending = this.pendingSeats();
-    if (bookedList.includes(num)) return { number: num, status: 'booked' };
-    if (pending.includes(num))    return { number: num, status: 'pending' };
-    return { number: num, status: 'available' };
-  }
-
-  private buildBusLayout(): SeatRow[] {
-    const booked = BOOKED['bus'];
-    const rows: SeatRow[] = [{ rowId: 'driver', seats: [], isDriverRow: true }];
-    for (let r = 1; r <= 12; r++) {
-      const letter = String.fromCharCode(64 + r);
-      const seats: Seat[] = [];
-      for (let c = 1; c <= 4; c++) {
-        seats.push(this.mkSeat(`${letter}${c}`, booked));
-      }
-      rows.push({ rowId: letter, seats, aisleAfter: 2 });
-    }
-    return rows;
-  }
-
-  private buildMinibus16Layout(): SeatRow[] {
-    const booked = BOOKED['minibus16'];
-    const mk = (n: string) => this.mkSeat(n, booked);
-    return [
-      { rowId: 'front', seats: [mk('F1'), mk('F2')], isDriverRow: true },
-      { rowId: 'A', seats: [mk('A1'), mk('A2'), mk('A3'), mk('A4')], aisleAfter: 2 },
-      { rowId: 'B', seats: [mk('B1'), mk('B2'), mk('B3')], aisleAfter: 2 },
-      { rowId: 'C', seats: [mk('C1'), mk('C2'), mk('C3')], aisleAfter: 2 },
-      { rowId: 'D', seats: [mk('D1'), mk('D2'), mk('D3'), mk('D4')], aisleAfter: 2 },
-    ];
-  }
-
-  private buildMinibus10Layout(): SeatRow[] {
-    const booked = BOOKED['minibus10'];
-    const mk = (n: string) => this.mkSeat(n, booked);
-    return [
-      { rowId: 'front', seats: [mk('F1')], isDriverRow: true },
-      { rowId: 'A', seats: [mk('A1'), mk('A2'), mk('A3')], aisleAfter: 2 },
-      { rowId: 'B', seats: [mk('B1'), mk('B2'), mk('B3')], aisleAfter: 2 },
-      { rowId: 'C', seats: [mk('C1'), mk('C2'), mk('C3')], aisleAfter: 2 },
-    ];
+    if (this.selectedSeats().length === this.searchParams()?.passengers && (this.remainingSec() ?? 0) > 0) this.router.navigate(['/passengers']);
   }
 }
